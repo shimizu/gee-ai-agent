@@ -5,7 +5,7 @@
 //       GEE / PortWatch のツールは渡さない（分析は Claude エージェントの担当）。
 //       run_prompt は入力欄に書き込み、そのまま送信して Claude を実行する（実行中は busy で拒否）。
 //       Claude の完了は notifyAgentFinished() で受け、要約テキストを送って読み上げさせる。
-// 注入: { apiKey, model, layers, datasets, geeState, isAgentRunning, runPrompt(text), setChatInput, enableSearch, log }
+// 注入: { apiKey, model, layers, datasets, geeState, isAgentRunning, runPrompt(text), setChatInput, enableSearch, voiceName, log }
 //       enableSearch=true で Google 検索グラウンディングを有効化（groundingMetadata はログに残す）。
 // 流用元: reference/web-gis-ai-agent/src/hooks/useVoiceSession.js
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -26,6 +26,7 @@ export function useVoiceSession({
   runPrompt,
   setChatInput,
   enableSearch = false,
+  voiceName,
   log,
 } = {}) {
   // idle → connecting → listening ⇄ speaking / error
@@ -152,6 +153,7 @@ export function useVoiceSession({
         model,
         systemInstruction: buildVoiceInstruction({ ...contextRef.current, enableSearch }),
         enableSearch,
+        voiceName,
         callbacks: {
           onAudio: (base64) => player.enqueue(base64),
           onOutputTranscript: (text) => setTranscript((prev) => `${prev}${text}`),
@@ -179,12 +181,12 @@ export function useVoiceSession({
       })
       captureRef.current = capture
       setVoiceState('listening')
-      log?.(`🎙 音声セッション開始（${model}${enableSearch ? ', Google 検索あり' : ''}）`)
+      log?.(`🎙 音声セッション開始（${model}, 声: ${voiceName || 'Kore'}${enableSearch ? ', Google 検索あり' : ''}）`)
     } catch (e) {
       const message = String(e?.message ?? e)
       fail(/NotAllowedError|Permission/.test(message) ? 'マイクの使用が許可されませんでした。ブラウザの権限設定を確認してください。' : message)
     }
-  }, [apiKey, enableSearch, fail, handleToolCall, log, model, teardown, voiceState])
+  }, [apiKey, enableSearch, voiceName, fail, handleToolCall, log, model, teardown, voiceState])
 
   const stop = useCallback(() => {
     setTranscript('')

@@ -65,6 +65,7 @@ export function useSettings() {
     saveSetting(SETTINGS_KEYS.geminiApiKey, clean.geminiApiKey)
     saveSetting(SETTINGS_KEYS.voiceModel, clean.voiceModel)
     saveSetting(SETTINGS_KEYS.voiceSearch, clean.voiceSearch ? '1' : '')
+    saveSetting(SETTINGS_KEYS.voiceName, clean.voiceName)
     setSettingsOpen(false)
     return clean
   }, [settings])

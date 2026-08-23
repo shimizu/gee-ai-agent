@@ -4,6 +4,7 @@
 //       利用者が入力する方針（共有端末では削除を促す）。
 // 関係: 値と保存処理は useSettings が管理。ヘッダー右側に差し込む。
 // 流用元: reference/web-gis-ai-agent/src/components/ApiSettings.jsx
+import { VOICE_OPTIONS } from '../voice/gemini-live-client.js'
 function TestResult({ result }) {
   if (!result || result.status === 'idle') return null
   return (
@@ -118,6 +119,15 @@ function ApiSettings({ settings, isOpen, onToggle, onFieldChange, onSave, onDele
           />
           <label htmlFor="voice-model">Gemini モデル（Live）</label>
           <input id="voice-model" type="text" value={settings.voiceModel} onChange={(e) => onFieldChange('voiceModel', e.target.value)} />
+          <label htmlFor="voice-name">声（Gemini prebuilt voice）</label>
+          <select id="voice-name" value={settings.voiceName} onChange={(e) => onFieldChange('voiceName', e.target.value)}>
+            {VOICE_OPTIONS.map(([name, note]) => (
+              <option key={name} value={name}>
+                {name} — {note}
+              </option>
+            ))}
+          </select>
+          <p className="field-help">次回の音声セッション開始時から反映されます（通話中の切替は一度停止してから）。</p>
           <div className="test-row">
             <button type="button" className="ghost-button" onClick={onTestGemini} disabled={!settings.geminiApiKey || geminiTesting}>
               接続テスト

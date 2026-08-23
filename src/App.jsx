@@ -288,6 +288,7 @@ function App() {
     runPrompt: runPromptFromVoice,
     setChatInput,
     enableSearch: Boolean(settings.voiceSearch),
+    voiceName: settings.voiceName,
     log,
   })
   useEffect(() => {

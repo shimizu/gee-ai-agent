@@ -12,12 +12,14 @@ export const SETTINGS_KEYS = {
   geminiApiKey: 'gee-agent.geminiApiKey',
   voiceModel: 'gee-agent.voiceModel',
   voiceSearch: 'gee-agent.voiceSearch',
+  voiceName: 'gee-agent.voiceName',
   introSeen: 'gee-agent.introSeen',
 }
 
 export const DEFAULT_MODEL = 'claude-opus-4-8'
 export const DEFAULT_MAX_TOKENS = 16000
 export const DEFAULT_VOICE_MODEL = 'gemini-3.1-flash-live-preview'
+export const DEFAULT_VOICE_NAME = 'Kore'
 
 export function loadSetting(key, fallback = '') {
   try {
@@ -46,5 +48,6 @@ export function loadAllSettings() {
     geminiApiKey: loadSetting(SETTINGS_KEYS.geminiApiKey),
     voiceModel: loadSetting(SETTINGS_KEYS.voiceModel) || DEFAULT_VOICE_MODEL,
     voiceSearch: loadSetting(SETTINGS_KEYS.voiceSearch) === '1',
+    voiceName: loadSetting(SETTINGS_KEYS.voiceName) || DEFAULT_VOICE_NAME,
   }
 }
