@@ -14,9 +14,10 @@ function TestResult({ result }) {
   )
 }
 
-function ApiSettings({ settings, isOpen, onToggle, onFieldChange, onSave, onDeleteKeys, tests, onTestClaude, onTestGee }) {
+function ApiSettings({ settings, isOpen, onToggle, onFieldChange, onSave, onDeleteKeys, tests, onTestClaude, onTestGee, onTestGemini }) {
   const claudeTesting = tests?.claude?.status === 'running'
   const geeTesting = tests?.gee?.status === 'running'
+  const geminiTesting = tests?.gemini?.status === 'running'
   const handleSubmit = (event) => {
     event.preventDefault()
     onSave()
@@ -104,6 +105,41 @@ function ApiSettings({ settings, isOpen, onToggle, onFieldChange, onSave, onDele
             保存後、ヘッダーの「GEE ログイン」から Google アカウントで認証します。
           </p>
 
+          <hr className="settings-divider" />
+
+          <label htmlFor="gemini-api-key">Gemini API キー（音声で相談）</label>
+          <input
+            id="gemini-api-key"
+            type="password"
+            value={settings.geminiApiKey}
+            placeholder="AIza..."
+            autoComplete="off"
+            onChange={(e) => onFieldChange('geminiApiKey', e.target.value)}
+          />
+          <label htmlFor="voice-model">Gemini モデル（Live）</label>
+          <input id="voice-model" type="text" value={settings.voiceModel} onChange={(e) => onFieldChange('voiceModel', e.target.value)} />
+          <div className="test-row">
+            <button type="button" className="ghost-button" onClick={onTestGemini} disabled={!settings.geminiApiKey || geminiTesting}>
+              接続テスト
+            </button>
+            <span className="field-help">キーとモデル名を確認（/models、課金なし）</span>
+          </div>
+          <TestResult result={tests?.gemini} />
+          <label className="check-row">
+            <input type="checkbox" checked={Boolean(settings.voiceSearch)} onChange={(e) => onFieldChange('voiceSearch', e.target.checked)} />
+            音声相談で Google 検索グラウンディングを使う
+          </label>
+          <p className="field-help">
+            最近の出来事・地名・データセット名の確認に Gemini が Google 検索を使えるようにします（別課金。無料枠超過後は検索ごとに課金）。
+          </p>
+          <p className="field-help">
+            マイクで相談し、Gemini が Claude への指示文を作って実行まで行う機能に使います。キーは
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">
+              Google AI Studio
+            </a>
+            で取得できます。ブラウザから直接接続するため専用キーを作り、利用上限を設定しておくことをおすすめします。
+          </p>
+
           <div className="settings-actions">
             <button type="submit" className="save-button">
               保存して閉じる
@@ -112,7 +148,7 @@ function ApiSettings({ settings, isOpen, onToggle, onFieldChange, onSave, onDele
               type="button"
               className="ghost-button"
               onClick={onDeleteKeys}
-              disabled={!settings.apiKey && !settings.geeClientId && !settings.geeProject}
+              disabled={!settings.apiKey && !settings.geeClientId && !settings.geeProject && !settings.geminiApiKey}
             >
               キーを削除
             </button>

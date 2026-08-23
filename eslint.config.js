@@ -12,6 +12,11 @@ export default defineConfig([
     ignores: ['dist', 'reference'],
   },
   {
+    // AudioWorklet は window の無い専用スコープで動くため、グローバルを個別に宣言する。
+    files: ['src/voice/pcm-worklet.js'],
+    languageOptions: { globals: { AudioWorkletProcessor: 'readonly', registerProcessor: 'readonly', sampleRate: 'readonly' } },
+  },
+  {
     files: ['**/*.{js,jsx}'],
     extends: [eslint.configs.recommended, eslintReact.configs.recommended, reactRefresh.configs.vite],
     languageOptions: {
@@ -49,6 +54,10 @@ export default defineConfig([
         ImageData: 'readonly',
         HTMLDialogElement: 'readonly',
         getComputedStyle: 'readonly',
+        AudioContext: 'readonly',
+        AudioWorkletNode: 'readonly',
+        btoa: 'readonly',
+        atob: 'readonly',
       },
     },
     rules: {

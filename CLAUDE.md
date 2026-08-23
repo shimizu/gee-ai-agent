@@ -45,7 +45,7 @@ portwatch-client / metrics / dataset-store / layer-store / system-prompt / runti
 `src/hooks/` の結線フックを依存順に組み立てる。
 
 ### 結線フック層（`src/hooks/`）
-- `useSettings` — API キー・モデル・GEE クライアント ID/プロジェクトの state と localStorage。
+- `useSettings` — API キー・モデル・GEE クライアント ID/プロジェクト・Gemini キー/音声モデルの state と localStorage。
 - `useGeeClient` — `GeeClient`（`src/gee/ee-client.js`）の単一インスタンスを購読。login/logout。
 - `useLayerActions` — `LayerStore` を所有。`addRasterLayer`（spec → `gee/layer-factory` で runtime 作成）、
   `addVectorLayer`、削除/更新/再作成、GEE ready 後の復元。
@@ -54,6 +54,24 @@ portwatch-client / metrics / dataset-store / layer-store / system-prompt / runti
   system は「安定プレフィックス（BASE+スキル, cache_control）」+「揮発ブロック（GEE 状態・レイヤー・データセット・表示範囲）」。
   ツールからの `postChatMessage({kind:'chart'})` もここで受ける。
 - `useMapHover` — raw レイヤーのホバーでタイルキャッシュから実値を拾う。
+- `useVoiceSession` — Gemini Live（音声相談）。マイク → Gemini → 再生の往復と、Gemini からの UI 操作
+  （`run_prompt` = 入力欄に書いて**送信まで行う** / `capture_map` = 地図スクショ）を結線。Claude 実行中の `run_prompt` は
+  busy で拒否。`notifyAgentFinished` で Claude 完了の要約をテキスト送信して読み上げさせる（useAgentSession の `onFinished`
+  から App の ref 経由で転送）。
+
+### 音声層（`src/voice/`）— Gemini Live API
+Claude とは別系統の第 2 の LLM 経路。ユーザーと音声で会話し、Claude への指示文を作って実行まで依頼する。
+**Gemini にアプリのツール（GEE / PortWatch / 地図）は渡さない**。渡すのは `run_prompt` / `capture_map` の 2 関数のみ。
+- `gemini-live-client.js` — `@google/genai` の `live.connect` を包む唯一の場所（動的 import）。`sendAudio / sendImage / sendText / sendToolResponses`。
+- `voice-tools.js` / `voice-instruction.js` — 関数宣言・ディスパッチ / system instruction・状況スナップショット・完了通知文（純関数・テスト対象）。
+- `audio-capture.js`（16kHz AudioWorklet → PCM16 base64）/ `audio-player.js`（24kHz PCM 再生キュー、割り込みで flush）/ `pcm.js`（純関数）/ `pcm-worklet.js`（`?raw` + Blob URL で addModule）。
+- `gemini-test.js` — 接続テスト（`GET /v1beta/models`、課金なし）。
+- 地図スクショは `utils/capture-map.js` が MapLibre の canvas から JPEG を取る（`<Map preserveDrawingBuffer>` 必須）。
+  `capture_map` では**画像を realtime input で先に送り、その後でツール応答を返す**（逆にするとモデルが画像を見ずに話す）。
+- Google 検索グラウンディング（設定のトグル、既定 OFF・別課金）: `buildLiveTools({enableSearch})` で `{googleSearch:{}}` を関数宣言と併用。
+  `groundingMetadata` は `describeGrounding` でログに残す。検索は指示文の具体化にだけ使い、数値根拠は Claude の結果。
+- 会話中のレイヤー変化は `sendText` で伝えず、ツール応答にスナップショットを同梱する。Claude 完了だけは `sendText` で通知する（読み上げさせるため）。
+- CSP: `connect-src` に `https://generativelanguage.googleapis.com` と `wss://generativelanguage.googleapis.com`。
 
 ### GEE 層（`src/gee/`）
 - `ee-loader.js` — `@google/earthengine` の動的 import と GIS スクリプト先読み（ポップアップブロック対策）。

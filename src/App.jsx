@@ -13,6 +13,7 @@ import { useDatasetActions } from './hooks/useDatasetActions'
 import { useChartActions } from './hooks/useChartActions'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useMapHover } from './hooks/useMapHover'
+import { useVoiceSession } from './hooks/useVoiceSession'
 
 import { RawTileCache } from './gee/tile-cache.js'
 import { getColormapTexture } from './gee/colormap-registry.js'
@@ -28,6 +29,7 @@ import Sidebar from './components/Sidebar'
 import TabbedPanel from './components/TabbedPanel'
 import MapView from './components/MapView'
 import ChatPanel from './components/ChatPanel'
+import VoiceButton from './components/VoiceButton'
 import ChartDialog from './components/ChartDialog'
 import LayerPanel from './components/LayerPanel'
 import DatasetPanel from './components/DatasetPanel'
@@ -63,7 +65,7 @@ function App() {
   }, [logs])
 
   // --- 設定 ---
-  const { settings, setField, save, deleteKeys, settingsOpen, setSettingsOpen, tests, testClaude, runGeeTest } = useSettings()
+  const { settings, setField, save, deleteKeys, settingsOpen, setSettingsOpen, tests, testClaude, testGemini, runGeeTest } = useSettings()
 
   // --- GEE 認証 ---
   const { geeClient, geeState, login: geeLogin, logout: geeLogout, testConnection: geeTest } = useGeeClient({
@@ -72,6 +74,8 @@ function App() {
     log,
   })
   const geeReady = geeState.status === 'ready'
+
+  const [rightOpen, setRightOpen] = useState(true)
 
   // --- 地図（MapLibre の ref を保持し、fitBounds / getMapView を提供） ---
   const mapRef = useRef(null)
@@ -210,6 +214,9 @@ function App() {
   const { hoverItems, handleMouseMove, clearHover } = useMapHover({ layers, tileCache })
 
   // --- エージェント ---
+  // 完了通知は音声セッション（後段で作る）へ ref 経由で転送する（フックの依存順の都合）。
+  const agentFinishedRef = useRef(null)
+  const handleAgentFinished = useCallback((result) => agentFinishedRef.current?.(result), [])
   const { messages, isRunning, chatInput, setChatInput, chatInputRef, handleSubmit, handleAbort, handleResetChat } =
     useAgentSession({
       geeClient,
@@ -230,6 +237,7 @@ function App() {
       model: settings.model,
       maxTokens: settings.maxTokens,
       log,
+      onFinished: handleAgentFinished,
     })
 
   // 開発専用: DevTools / ヘッドレス検証からストアを触れるようにする（本番バンドルには含めない）。
@@ -250,6 +258,41 @@ function App() {
     })
   }, [layerStore, datasetStore, chartStore])
 
+  // --- 音声セッション（Gemini Live）---
+  // Gemini には run_prompt（入力＋送信）と capture_map だけを渡す。分析は Claude の担当。
+  const [activeTab, setActiveTab] = useState('chat')
+  const runPromptFromVoice = useCallback(
+    async (text) => {
+      setActiveTab('chat')
+      setRightOpen(true)
+      return handleSubmit(text)
+    },
+    [handleSubmit],
+  )
+  const {
+    voiceState,
+    transcript: voiceTranscript,
+    error: voiceError,
+    elapsed: voiceElapsed,
+    start: startVoice,
+    stop: stopVoice,
+    notifyAgentFinished,
+  } = useVoiceSession({
+    apiKey: settings.geminiApiKey,
+    model: settings.voiceModel,
+    layers,
+    datasets,
+    geeState,
+    isAgentRunning: isRunning,
+    runPrompt: runPromptFromVoice,
+    setChatInput,
+    enableSearch: Boolean(settings.voiceSearch),
+    log,
+  })
+  useEffect(() => {
+    agentFinishedRef.current = notifyAgentFinished
+  }, [notifyAgentFinished])
+
   // 「新しい会話」= 会話・レイヤー・データセット・チャート・ログを全消去。
   const handleNewConversation = useCallback(() => {
     handleAbort()
@@ -266,10 +309,8 @@ function App() {
     setAboutOpen(false)
     saveSetting(SETTINGS_KEYS.introSeen, '1')
   }, [])
-  const [rightOpen, setRightOpen] = useState(true)
   const [rightWidth, setRightWidth] = useState(420)
   const [rightHeight, setRightHeight] = useState(null)
-  const [activeTab, setActiveTab] = useState('chat')
 
   const handleSaveSettings = useCallback(() => {
     save()
@@ -303,6 +344,18 @@ function App() {
             onReset={handleNewConversation}
             chartsById={chartsById}
             onOpenChart={openChart}
+            voiceSlot={
+              <VoiceButton
+                state={voiceState}
+                transcript={voiceTranscript}
+                error={voiceError}
+                elapsed={voiceElapsed}
+                disabled={!settings.geminiApiKey}
+                disabledReason="⚙ 設定 から Gemini API キーを設定すると音声で相談できます。"
+                onStart={startVoice}
+                onStop={stopVoice}
+              />
+            }
           />
         ),
       },
@@ -342,6 +395,13 @@ function App() {
       handleNewConversation,
       chartsById,
       openChart,
+      voiceState,
+      voiceTranscript,
+      voiceError,
+      voiceElapsed,
+      settings.geminiApiKey,
+      startVoice,
+      stopVoice,
       layers,
       toggleLayer,
       zoomToLayer,
@@ -386,6 +446,7 @@ function App() {
             tests={tests}
             onTestClaude={testClaude}
             onTestGee={handleTestGee}
+            onTestGemini={testGemini}
           />
         }
       />

@@ -9,11 +9,15 @@ export const SETTINGS_KEYS = {
   maxTokens: 'gee-agent.maxTokens',
   geeClientId: 'gee-agent.geeClientId',
   geeProject: 'gee-agent.geeProject',
+  geminiApiKey: 'gee-agent.geminiApiKey',
+  voiceModel: 'gee-agent.voiceModel',
+  voiceSearch: 'gee-agent.voiceSearch',
   introSeen: 'gee-agent.introSeen',
 }
 
 export const DEFAULT_MODEL = 'claude-opus-4-8'
 export const DEFAULT_MAX_TOKENS = 16000
+export const DEFAULT_VOICE_MODEL = 'gemini-3.1-flash-live-preview'
 
 export function loadSetting(key, fallback = '') {
   try {
@@ -39,5 +43,8 @@ export function loadAllSettings() {
     maxTokens: Number(loadSetting(SETTINGS_KEYS.maxTokens)) || DEFAULT_MAX_TOKENS,
     geeClientId: loadSetting(SETTINGS_KEYS.geeClientId),
     geeProject: loadSetting(SETTINGS_KEYS.geeProject),
+    geminiApiKey: loadSetting(SETTINGS_KEYS.geminiApiKey),
+    voiceModel: loadSetting(SETTINGS_KEYS.voiceModel) || DEFAULT_VOICE_MODEL,
+    voiceSearch: loadSetting(SETTINGS_KEYS.voiceSearch) === '1',
   }
 }

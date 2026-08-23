@@ -3,7 +3,7 @@
 // 役割: チャット状態（messages / isRunning / chatInput）と会話永続化（ConversationStore）を所有し、
 //       runAgent へ callClaude / toolRegistry / system を注入して実行する。onEvent で
 //       「途中経過→チャット」「ツール実行→ログ」を出し分ける。ツールからの postChatMessage
-//       （チャートカード）もここで受ける。
+//       （チャートカード）もここで受ける。onFinished で実行完了（status/本文/追加レイヤー）を通知する（音声読み上げ用）。
 // 注入: { geeClient, geeState, datasetStore, layerStore, chartStore, addRasterLayer, addVectorLayer,
 //         removeLayer, updateLayer, updateLayerSpec, getMapView, fitBounds, layers, datasets,
 //         apiKey, model, maxTokens, log }
@@ -100,6 +100,7 @@ export function useAgentSession({
   model,
   maxTokens,
   log,
+  onFinished,
 }) {
   const [messages, setMessages] = useState(loadChatView)
   const [isRunning, setIsRunning] = useState(false)
@@ -157,7 +158,9 @@ export function useAgentSession({
 
   const handleSubmit = useCallback(
     async (content) => {
-      if (!apiKey || isRunning) return
+      if (!apiKey || isRunning) return false
+      const layersBefore = new Set(layerStore.list().map((l) => l.layerId))
+      const chartsBefore = chartStore.list().length
       setMessages((cur) => [...cur, { id: uuid(), role: 'user', content }])
       setIsRunning(true)
       const controller = new AbortController()
@@ -184,6 +187,17 @@ export function useAgentSession({
           },
         })
         conversationStore.setMessages(result.messages)
+        // 音声セッションなどへ完了を通知（追加されたレイヤー名・チャート数つき）。
+        try {
+          onFinished?.({
+            status: result.status,
+            content: result.content ?? '',
+            addedLayers: layerStore.list().filter((l) => !layersBefore.has(l.layerId)).map((l) => l.name),
+            addedCharts: Math.max(0, chartStore.list().length - chartsBefore),
+          })
+        } catch {
+          // 通知失敗は無視
+        }
         if (result.content && result.status !== 'aborted' && result.status !== 'refused') {
           setMessages((cur) => [...cur, { id: uuid(), role: 'assistant', content: result.content }])
         } else if (result.status === 'aborted') {
@@ -196,12 +210,18 @@ export function useAgentSession({
           ...cur,
           { id: uuid(), role: 'assistant', kind: 'notice', content: `エラー: ${String(e?.message ?? e)}` },
         ])
+        try {
+          onFinished?.({ status: 'error', content: String(e?.message ?? e), addedLayers: [], addedCharts: 0 })
+        } catch {
+          // 無視
+        }
       } finally {
         setIsRunning(false)
         abortRef.current = null
       }
+      return true
     },
-    [apiKey, isRunning, toolRegistry, layers, datasets, geeState, getMapView, model, maxTokens, log],
+    [apiKey, isRunning, toolRegistry, layers, datasets, geeState, getMapView, model, maxTokens, log, onFinished, layerStore, chartStore],
   )
 
   const handleAbort = useCallback(() => abortRef.current?.abort(), [])

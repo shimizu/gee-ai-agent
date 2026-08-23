@@ -2,7 +2,8 @@
 //
 // 役割: CARTO のベクタースタイルをベースマップに、Layers/index.js が組んだ deck.gl レイヤーを
 //       interleaved で重ねる。地図の移動・ホバー・Device 初期化を親へ通知し、fitBounds と
-//       getMapView を親が使えるよう ref を公開する。
+//       getMapView を親が使えるよう ref を公開する。preserveDrawingBuffer は音声機能の地図スクショ
+//       （utils/capture-map の toDataURL）に必要。
 // 関係: App が layers/colormapTexture/ハンドラを渡す。カメラは MapLibre が所有する。
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Map as MaplibreMap } from 'react-map-gl/maplibre'
@@ -76,6 +77,7 @@ function MapView({
         initialViewState={INITIAL_VIEW}
         mapStyle={BASEMAP_STYLE}
         attributionControl={false}
+        preserveDrawingBuffer
         onLoad={handleLoad}
         onMouseMove={handleMouseMove}
         onMouseOut={onMouseLeave}

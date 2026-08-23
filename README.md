@@ -11,6 +11,7 @@
   ホバーで実値表示、カラーマップ/レンジの即時変更、バンド演算）
 - 📈 時系列・集計をデータセットに保存し、`show_chart` でチャット内にチャート
 - ⚓ PortWatch: 港・要衝の検索、日次入港数/貿易量、波及リスク、災害イベント、港の位置レイヤー
+- 🎙 音声で相談（Gemini Live）: マイクで話すと Gemini が指示文を作って Claude に**送信・実行まで**行い、完了を音声で要約
 - 💾 エクスポート: レイヤーを GeoTIFF（EE から生データ、または表示中の float タイルをクライアントで結合）/ PNG、ベクターを GeoJSON、データセットを CSV/JSON/GeoJSON で保存。エージェントにも「GeoTIFF にして」と頼める
 - 🔌 データソースは `src/tools/<source>/` + `src/agent/skills/<source>.js` を足すだけで拡張可能
 
@@ -23,6 +24,7 @@ npm run dev      # http://localhost:5173
 
 ### 必要な設定（画面右上 ⚙ 設定）
 1. **Claude API キー**（platform.claude.com）
+   - 任意: **Gemini API キー**（Google AI Studio）を入れると「🎙 音声で相談」が使えます（専用キー + 利用上限推奨）
 2. **GEE OAuth クライアント ID** と **Cloud プロジェクト ID**
    - Google Cloud Console → API とサービス → 認証情報 → OAuth 2.0 クライアント ID（**ウェブ アプリケーション**）
    - 「承認済みの JavaScript 生成元」に `http://localhost:5173`（および本番オリジン）を追加。リダイレクト URI は不要
@@ -49,7 +51,7 @@ PortWatch だけの質問（例: 「シンガポール港の入港数推移を�
 
 ## 技術スタック
 React 19 / Vite 8 / deck.gl 9.3 + `@developmentseed/deck.gl-raster` / MapLibre GL（CARTO ベースマップ）/
-`@google/earthengine`（ブラウザ OAuth）/ geotiff.js / Recharts / Claude Messages API 直叩き。
+`@google/earthengine`（ブラウザ OAuth）/ geotiff.js / Recharts / Claude Messages API 直叩き / `@google/genai`（Gemini Live）。
 
 ## 開発メモ
 - raw タイル配信の実機確認: GEE ログイン後、DevTools で `await window.__geeSpike()`（`docs/spike-raw-tiles.md`）。

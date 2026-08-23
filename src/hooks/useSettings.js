@@ -5,6 +5,7 @@
 import { useCallback, useState } from 'react'
 import { loadAllSettings, saveSetting, SETTINGS_KEYS } from '../data/settings.js'
 import { testClaudeConnection } from '../agent/claude-client.js'
+import { testGeminiConnection } from '../voice/gemini-test.js'
 
 const IDLE = { status: 'idle', message: '' }
 
@@ -12,13 +13,14 @@ export function useSettings() {
   const [settings, setSettings] = useState(loadAllSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
   // 接続テストの結果（claude / gee）。{ status: idle|running|ok|error, message }
-  const [tests, setTests] = useState({ claude: IDLE, gee: IDLE })
+  const [tests, setTests] = useState({ claude: IDLE, gee: IDLE, gemini: IDLE })
 
   const setField = useCallback((name, value) => {
     setSettings((cur) => ({ ...cur, [name]: value }))
     // 値を変えたら古いテスト結果は消す。
     if (name === 'apiKey' || name === 'model') setTests((t) => ({ ...t, claude: IDLE }))
     if (name === 'geeClientId' || name === 'geeProject') setTests((t) => ({ ...t, gee: IDLE }))
+    if (name === 'geminiApiKey' || name === 'voiceModel') setTests((t) => ({ ...t, gemini: IDLE }))
   }, [])
 
   const testClaude = useCallback(async () => {
@@ -27,6 +29,13 @@ export function useSettings() {
     setTests((t) => ({ ...t, claude: { status: r.ok ? (r.modelFound ? 'ok' : 'warn') : 'error', message: r.message } }))
     return r
   }, [settings.apiKey, settings.model])
+
+  const testGemini = useCallback(async () => {
+    setTests((t) => ({ ...t, gemini: { status: 'running', message: '確認中…' } }))
+    const r = await testGeminiConnection({ apiKey: settings.geminiApiKey, model: settings.voiceModel })
+    setTests((t) => ({ ...t, gemini: { status: r.ok ? (r.modelFound ? 'ok' : 'warn') : 'error', message: r.message } }))
+    return r
+  }, [settings.geminiApiKey, settings.voiceModel])
 
   // GEE のテスト本体は useGeeClient が持つ（ee インスタンス所有のため）。ここは結果表示の state だけ扱う。
   const runGeeTest = useCallback(
@@ -45,6 +54,7 @@ export function useSettings() {
       apiKey: String(settings.apiKey ?? '').trim(),
       geeClientId: String(settings.geeClientId ?? '').trim(),
       geeProject: String(settings.geeProject ?? '').trim(),
+      geminiApiKey: String(settings.geminiApiKey ?? '').trim(),
     }
     setSettings(clean)
     saveSetting(SETTINGS_KEYS.apiKey, clean.apiKey)
@@ -52,16 +62,20 @@ export function useSettings() {
     saveSetting(SETTINGS_KEYS.maxTokens, String(clean.maxTokens))
     saveSetting(SETTINGS_KEYS.geeClientId, clean.geeClientId)
     saveSetting(SETTINGS_KEYS.geeProject, clean.geeProject)
+    saveSetting(SETTINGS_KEYS.geminiApiKey, clean.geminiApiKey)
+    saveSetting(SETTINGS_KEYS.voiceModel, clean.voiceModel)
+    saveSetting(SETTINGS_KEYS.voiceSearch, clean.voiceSearch ? '1' : '')
     setSettingsOpen(false)
     return clean
   }, [settings])
 
   const deleteKeys = useCallback(() => {
-    setSettings((cur) => ({ ...cur, apiKey: '', geeClientId: '', geeProject: '' }))
+    setSettings((cur) => ({ ...cur, apiKey: '', geeClientId: '', geeProject: '', geminiApiKey: '' }))
     saveSetting(SETTINGS_KEYS.apiKey, '')
+    saveSetting(SETTINGS_KEYS.geminiApiKey, '')
     saveSetting(SETTINGS_KEYS.geeClientId, '')
     saveSetting(SETTINGS_KEYS.geeProject, '')
   }, [])
 
-  return { settings, setField, save, deleteKeys, settingsOpen, setSettingsOpen, tests, testClaude, runGeeTest }
+  return { settings, setField, save, deleteKeys, settingsOpen, setSettingsOpen, tests, testClaude, testGemini, runGeeTest }
 }

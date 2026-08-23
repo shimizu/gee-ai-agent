@@ -3,6 +3,7 @@
 // 役割: ユーザー入力と、エージェントのメッセージ（途中経過 / 最終回答 / お知らせ / チャートカード）を表示する。
 //       kind により表示を出し分ける: progress=控えめ、notice=注意色、chart=ChartCard、最終回答=Markdown。
 // 関係: messages/isRunning は useAgentSession が保持。チャートは chartsById から chartId で引く。
+//       voiceSlot は音声（Gemini Live）の操作 UI をスロットで差し込む。
 // 流用元: reference/web-gis-ai-agent/src/components/ChatPanel.jsx（チャートカードを追加）
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
@@ -23,6 +24,7 @@ function ChatPanel({
   onReset,
   chartsById,
   onOpenChart,
+  voiceSlot,
 }) {
   const lastSubmittedRef = useRef('')
   const [helpOpen, setHelpOpen] = useState(false)
@@ -122,7 +124,7 @@ function ChatPanel({
               onKeyDown={handleKeyDown}
             />
             <div className="prompt-actions">
-              <span />
+              {voiceSlot ?? <span />}
               {isRunning ? (
                 <button type="button" onClick={onAbort}>
                   中断
