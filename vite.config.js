@@ -38,8 +38,9 @@ export default defineConfig({
   base: './',
   plugins: [react(), cspPlugin()],
   optimizeDeps: {
-    // @google/earthengine は Closure コンパイル済み CJS。ESM へプリバンドルする。
-    include: ['@google/earthengine'],
+    // @google/earthengine は Closure コンパイル済み CJS。ESM へプリバンドルする。geotiff は内部で
+    // 圧縮デコーダを動的 import するため、事前に最適化して dev 時の再最適化（504）を避ける。
+    include: ['@google/earthengine', 'geotiff'],
   },
   build: {
     chunkSizeWarningLimit: 3000,

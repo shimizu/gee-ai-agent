@@ -1,5 +1,9 @@
 // 地図・レイヤー操作ツールの実装。
 import { COLORMAP_NAMES } from '../../gee/pipeline.js'
+import { exportLayerFromEE, estimateDownloadBytes, DOWNLOAD_LIMIT_BYTES } from '../../gee/export-service.js'
+import { regionToBounds } from '../shared/region.js'
+import { evaluate } from '../../gee/ee-promise.js'
+import { makeEeContext } from '../gee/handlers.js'
 import { geojsonBounds, geojsonSummary, rowsToPointFeatureCollection } from '../shared/summarize.js'
 
 const MAX_FEATURES = 2000
@@ -148,7 +152,40 @@ export function makeMapHandlers(deps) {
     return summarizeLayer(layer)
   }
 
-  return { listLayers, removeLayer, updateLayerStyle, getMapView, fitBounds, addVectorLayer }
+  async function exportLayer(input) {
+    const layer = layerStore.get(input.layer_id)
+    if (!layer) throw new Error(`レイヤーが見つかりません: ${input.layer_id}`)
+    if (layer.kind !== 'ee-raster') throw new Error('export_layer は EE ラスターレイヤー専用です。ベクターはレイヤーパネルの ⤓ から GeoJSON 保存できます。')
+    const ee = deps.geeClient.assertReady()
+    const bounds = (await regionToBounds(ee, input.region ?? { type: 'map_view' }, { ...deps, evaluate })) ?? deps.getMapView()?.bounds
+    if (!bounds) throw new Error('範囲を決定できません。region を指定してください。')
+    const scale = Number(input.scale) > 0 ? Number(input.scale) : 100
+    const format = input.format === 'png' ? 'png' : 'geotiff'
+    const bands = Array.isArray(input.bands) && input.bands.length ? input.bands : null
+    const bandCount = bands?.length ?? layer.bandNames?.length ?? 1
+    const estimate = estimateDownloadBytes({ bounds, scale, crs: input.crs, bandCount, bytesPerSample: format === 'png' ? 1 : 4 })
+    if (format === 'geotiff' && estimate.overLimit) {
+      throw new Error(
+        `推定サイズ ${estimate.mb.toFixed(1)}MB が上限 ${Math.round(DOWNLOAD_LIMIT_BYTES / 1024 / 1024)}MB を超えます。scale を ${estimate.suggestedScale} 以上にするか範囲を狭めて再試行してください。`,
+      )
+    }
+    const ctx = makeEeContext(ee, deps)
+    const r = await exportLayerFromEE({ ee, layer, bounds, scale, crs: input.crs, bands, format, ctx, log: deps.log })
+    return {
+      layerId: layer.layerId,
+      url: r.url,
+      filename: r.filename,
+      format: r.format,
+      scale,
+      crs: r.params?.crs ?? input.crs ?? 'EPSG:4326',
+      bands: bands ?? layer.bandNames,
+      bounds: bounds.map((v) => Math.round(v * 1e4) / 1e4),
+      estimatedMB: Math.round(estimate.mb * 10) / 10,
+      note: 'URL は一時的です。ユーザーにはこの URL を Markdown リンクで提示してください（クリックでダウンロード）。',
+    }
+  }
+
+  return { listLayers, removeLayer, updateLayerStyle, getMapView, fitBounds, addVectorLayer, exportLayer }
 }
 
 // 点が 1 つしかない場合などに bounds をわずかに広げる。

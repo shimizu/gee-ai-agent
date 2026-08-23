@@ -4,6 +4,7 @@
 import { useEffect, useRef } from 'react'
 import ChartRenderer from './ChartRenderer'
 import { downloadBlob, rowsToCsv } from '../utils/download.js'
+import { safeFilename } from '../data/export-formats.js'
 
 function ChartDialog({ chart, onClose }) {
   const ref = useRef(null)
@@ -28,7 +29,7 @@ function ChartDialog({ chart, onClose }) {
 
   const handleCsv = () => {
     const csv = rowsToCsv(rows, columns)
-    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${(spec.title || chart.chartId).replace(/[\\/:*?"<>|]/g, '_')}.csv`)
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), safeFilename(spec.title || chart.chartId, 'csv'))
   }
 
   return (

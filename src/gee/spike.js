@@ -80,6 +80,6 @@ export function makeSyntheticRawLayer({ layerId = 'lyr_demo', name = '合成 raw
     bandNames: ['v'],
     originPrompt: 'dev',
     createdAt: new Date().toISOString(),
-    runtime: { status: 'ready', kind: 'raw', bandIds: ['v'], getTileData, urlFormat: 'synthetic' },
+    runtime: { status: 'ready', kind: 'raw', bandIds: ['v'], getTileData, urlFormat: `${window.location.origin}/__synthetic/{z}/{x}/{y}.tif` },
   }
 }

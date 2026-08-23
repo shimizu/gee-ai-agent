@@ -87,3 +87,27 @@ export function regionToEeGeometry(ee, region, { getMapView, layerStore } = {}) 
       throw new Error(`未知の region: ${r.type}`)
   }
 }
+
+// 正規化済み region → [w,s,e,n]。bbox / map_view / layer(bounds) は同期、それ以外は ee.Geometry.bounds() を評価する。
+export async function regionToBounds(ee, region, { getMapView, layerStore, evaluate } = {}) {
+  const r = normalizeRegion(region)
+  if (!r) return null
+  if (r.type === 'bbox') return r.bounds
+  if (r.type === 'map_view') {
+    const view = getMapView?.()
+    if (!view?.bounds) throw new Error('現在の地図表示範囲を取得できません。')
+    return view.bounds
+  }
+  if (r.type === 'layer') {
+    const layer = layerStore?.get?.(r.layer_id)
+    if (layer?.bounds) return layer.bounds
+  }
+  if (typeof evaluate !== 'function') throw new Error('この region 形式には EE の評価が必要です。')
+  const geom = regionToEeGeometry(ee, r, { getMapView, layerStore })
+  const b = await evaluate(geom.bounds(), { timeoutMs: 60_000 })
+  const coords = b?.coordinates?.[0]
+  if (!coords) throw new Error('領域の範囲を取得できませんでした。')
+  const xs = coords.map((c) => c[0])
+  const ys = coords.map((c) => c[1])
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]
+}

@@ -74,3 +74,26 @@ export const ADD_VECTOR_LAYER = {
     required: ['name'],
   },
 }
+
+export const EXPORT_LAYER = {
+  name: 'export_layer',
+  description:
+    'EE ラスターレイヤーを GeoTIFF（可視化前の生データ・元のデータ型）または PNG（レイヤーの vis で可視化）としてダウンロードする URL を作る。' +
+    'Earth Engine 側で指定範囲・解像度・CRS に再計算するため、1 回の上限は約 48MB（超過見込みなら実行せず suggestedScale を返すので scale を粗くして再試行）。' +
+    '返った url を最終回答に Markdown リンクで載せてユーザーに案内する（URL は一時的）。ベクターレイヤーやデータセットはパネルのボタンから保存する。',
+  input_schema: {
+    type: 'object',
+    properties: {
+      layer_id: { type: 'string' },
+      region: {
+        description: "範囲。既定は現在の地図表示範囲（{type:'map_view'}）。[west,south,east,north] / {type:'bbox', bounds} / {type:'point', lon, lat, buffer_m} / {type:'layer', layer_id} も可。",
+        oneOf: [{ type: 'object' }, { type: 'array', items: { type: 'number' } }, { type: 'string' }],
+      },
+      scale: { type: 'number', description: '解像度（m）。既定 100。データのネイティブ解像度以上を推奨。' },
+      crs: { type: 'string', enum: ['EPSG:4326', 'EPSG:3857'], description: '既定 EPSG:4326' },
+      bands: { type: 'array', items: { type: 'string' }, description: '書き出すバンド（省略時は全バンド）' },
+      format: { type: 'string', enum: ['geotiff', 'png'], description: '既定 geotiff' },
+    },
+    required: ['layer_id'],
+  },
+}

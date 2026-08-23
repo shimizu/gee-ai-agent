@@ -7,7 +7,7 @@ import { evaluate } from '../../gee/ee-promise.js'
 import { normalizeEeError } from '../../gee/ee-errors.js'
 import { BAND_MATH_NAMES, COLORMAP_NAMES, DEFAULT_COLORMAP } from '../../gee/pipeline.js'
 import { RAW_NODATA } from '../../gee/map-service.js'
-import { regionToEeGeometry, normalizeRegion } from '../shared/region.js'
+import { regionToEeGeometry, normalizeRegion, regionToBounds } from '../shared/region.js'
 import {
   capValue,
   featureCollectionToRows,
@@ -120,20 +120,9 @@ export function makeGeeHandlers(deps) {
   }
 
   async function fitToRegion(region) {
-    const r = normalizeRegion(region)
-    if (!r) return
-    if (r.type === 'bbox') {
-      deps.fitBounds?.(r.bounds)
-      return
-    }
     const ee = geeClient.assertReady()
-    const geom = regionToEeGeometry(ee, r, deps)
-    const b = await evaluate(geom.bounds(), { timeoutMs: 60_000 })
-    const coords = b?.coordinates?.[0]
-    if (!coords) return
-    const xs = coords.map((c) => c[0])
-    const ys = coords.map((c) => c[1])
-    deps.fitBounds?.([Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)])
+    const bounds = await regionToBounds(ee, region, { ...deps, evaluate })
+    if (bounds) deps.fitBounds?.(bounds)
   }
 
   async function eeTimeSeries(input) {

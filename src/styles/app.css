@@ -919,6 +919,79 @@ code {
   color: #fff;
 }
 
+/* エクスポート */
+.export-modal .export-tabs {
+  margin-bottom: var(--space-3);
+}
+.export-row {
+  margin-bottom: var(--space-2);
+}
+.export-row > label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.export-inline {
+  display: flex;
+  gap: var(--space-2);
+}
+.export-inline input {
+  flex: 1 1 auto;
+  padding: 4px 6px;
+}
+.export-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.export-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.export-grid input,
+.export-grid select {
+  padding: 4px 6px;
+  font-weight: 400;
+}
+.export-bands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: 12px;
+}
+.band-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+}
+.field-help.warn {
+  color: var(--color-warn);
+}
+.dataset-export {
+  display: inline-flex;
+  gap: 2px;
+}
+.mini-btn {
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  border-radius: 3px;
+  font-size: 10px;
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+.mini-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
 /* 接続テスト */
 .test-row {
   display: flex;

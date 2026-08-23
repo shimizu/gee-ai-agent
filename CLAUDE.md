@@ -69,13 +69,18 @@ portwatch-client / metrics / dataset-store / layer-store / system-prompt / runti
 - `colormap-registry.js` — `colormaps.png` → `decodeColormapSprite` → `createColormapTexture(device)`（device ごとにメモ化）。
 - `tile-cache.js` / `pixel-pick.js` — CPU 側 Float32Array のキャッシュと経緯度→画素参照（表示ズーム+2 から降順に探す）。
 - `layer-factory.js` — spec → runtime。raw の `getTileData` はここで 1 回だけ作る（参照安定が必須）。
+- `export-service.js` — EE 経由のエクスポート（`getDownloadURL`/`getThumbURL` の Promise 化、`buildDownloadParams`、
+  `estimateDownloadBytes`: 1 リクエスト ≒48MB 上限の事前推定と scale 提案）。
+- `tile-mosaic.js` — 表示中の raw タイルをクライアントで結合し geotiff.js `writeArrayBuffer` で EPSG:3857 の float32 GeoTIFF に
+  書き出す（`tileRangeForBounds` / `mosaicTiles` / `mercatorGeoTransform` / `writeGeoTiff3857` / `exportRawLayerTiles`、上限 64 タイル）。
 - `spike.js` — 開発専用。`window.__geeSpike()`（raw タイル配信の実機確認）と `window.__geeDev`（ストア・合成 raw レイヤー）。
 
 ### ツール層（`src/tools/`）— 拡張ポイント
 各ソースは `src/tools/<source>/index.js` で `{ id, skills: [Markdown...], register(registry, deps) }` を export し、
 `src/tools/sources.js` の `SOURCES` に 1 行足すだけでツール登録とシステムプロンプトの両方に反映される。
 - `gee/`: `ee_run` / `ee_add_layer` / `ee_time_series` / `ee_describe`
-- `map/`: `list_layers` / `remove_layer` / `update_layer_style` / `get_map_view` / `fit_bounds` / `add_vector_layer`
+- `map/`: `list_layers` / `remove_layer` / `update_layer_style` / `get_map_view` / `fit_bounds` / `add_vector_layer` / `export_layer`（EE の
+  ダウンロード URL を返す。48MB 超過見込みは実行せず suggestedScale 付きエラー）
 - `chart/`: `show_chart` / `list_datasets` / `inspect_dataset` / `analyze_dataset`
 - `portwatch/`: `portwatch_search_locations` / `portwatch_fetch_metrics` / `portwatch_fetch_spillovers` /
   `portwatch_find_disruptions` / `portwatch_show_locations`（+ `portwatch-client.js` / `anomaly.js` / `metrics.js`）
@@ -90,7 +95,12 @@ deps の形は `src/tools/register-tools.js` 先頭のコメント参照。**ツ
 
 ### データ層（`src/data/`）
 `layer-store.js`（spec のみ永続化。runtime はリロード後に再作成）、`dataset-store.js`（要約 localStorage + 行 IndexedDB）、
-`chart-store.js`、`chart-spec.js`（show_chart 入力の検証・正規化・ヒストグラム）、`idb.js`、`settings.js`。
+`chart-store.js`、`chart-spec.js`（show_chart 入力の検証・正規化・ヒストグラム）、`idb.js`、`settings.js`、
+`export-formats.js`（データセット CSV/JSON/GeoJSON・ベクター GeoJSON・`safeFilename`）。
+
+### エクスポート UI
+レイヤー行の ⤓: EE ラスターは `ExportLayerModal`（「EE からダウンロード」= 範囲/scale/CRS/バンド/形式 + 推定サイズ、
+「表示タイルから」= raw のみ、ズーム指定）、ベクターは GeoJSON 即保存。データセット行の CSV/JSON/GeoJSON ボタン。
 
 ### 描画（`src/Layers/index.js`）
 deck.gl レイヤー配列を組む唯一の場所。png = `TileLayer`+`BitmapLayer`、raw = `RasterTileLayer`（`updateTriggers.renderTile`

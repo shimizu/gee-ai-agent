@@ -30,7 +30,7 @@ export const BASE_SYSTEM_PROMPT = `あなたはブラウザ上で動く「Earth 
 - ee_add_layer: ee.Image を地図レイヤーに（png / raw）
 - ee_time_series: ImageCollection を領域集約して時系列データセットに
 - ee_describe: EE オブジェクトの構造確認
-- list_layers / remove_layer / update_layer_style / get_map_view / fit_bounds / add_vector_layer: 地図操作
+- list_layers / remove_layer / update_layer_style / get_map_view / fit_bounds / add_vector_layer / export_layer: 地図操作・エクスポート
 - show_chart / list_datasets / inspect_dataset / analyze_dataset: チャートとデータセット
 - portwatch_search_locations / portwatch_fetch_metrics / portwatch_fetch_spillovers / portwatch_find_disruptions / portwatch_show_locations: PortWatch`
 

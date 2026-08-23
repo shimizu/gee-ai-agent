@@ -37,4 +37,14 @@ export const GEE_VIZ_SKILL = `## スキル: 地図レイヤーの可視化（ee_
 - raw のレンジ/カラーマップ変更は update_layer_style（再計算なし）。
 - 比較するときは 2 レイヤーを重ね、上のレイヤーの opacity を 0.6 程度にする。
 - 追加後は fit_bounds で対象範囲へ移動する（対象が現在の表示範囲ならそのまま）。
-- ベクター（港の点・境界・ee_run の FeatureCollection 結果）は add_vector_layer / portwatch_show_locations。`
+- ベクター（港の点・境界・ee_run の FeatureCollection 結果）は add_vector_layer / portwatch_show_locations。
+
+### エクスポート（export_layer）
+- 「GeoTIFF にして / ダウンロードしたい / 保存して」→ export_layer(layer_id, region, scale, crs, bands, format)。
+- 返った url を最終回答に Markdown リンク（[ファイル名](url)）で載せる。URL は一時的で、クリックすると EE からダウンロードされる。
+- 既定は現在の表示範囲・scale 100m・EPSG:4326・全バンド・GeoTIFF（可視化前の生値、元のデータ型）。
+- 1 回の上限は約 48MB。超過見込みのエラーが返ったら suggestedScale 以上に粗くするか範囲を狭めて再試行する。
+  目安: 10km 四方を 10m で 1 バンド float ≒ 4MB、100km 四方を 30m で 3 バンド ≒ 130MB（超過）。
+- png 形式はレイヤーの vis で可視化した画像（図版向け）。生データが要るときは geotiff。
+- 表示中の float タイルをそのまま保存する方法（再計算なし・EPSG:3857）はレイヤーパネルの ⤓ にあるとユーザーに案内できる。
+- データセット（CSV/JSON/GeoJSON）とベクターレイヤー（GeoJSON）はパネルのボタンから保存する（ツールは無い）。`

@@ -9,6 +9,8 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import { LayerStore } from '../data/layer-store.js'
 import { buildRasterRuntime } from '../gee/layer-factory.js'
 import { makeEeContext } from '../tools/gee/handlers.js'
+import { exportLayerFromEE } from '../gee/export-service.js'
+import { exportRawLayerTiles } from '../gee/tile-mosaic.js'
 
 const layerStore = new LayerStore()
 
@@ -145,6 +147,30 @@ export function useLayerActions({ geeClient, geeReady, tileCache, getMapView, fi
     layerStore.update(layerId, { runtime: { ...layer.runtime, status: 'stale', error: String(error?.message ?? error ?? '') } })
   }, [])
 
+  // EE 経由のエクスポート（GeoTIFF raw / PNG 可視化）。ダウンロード URL を返す。
+  const exportLayerViaEE = useCallback(
+    async ({ layerId, bounds, scale, crs, bands, format }) => {
+      const ee = geeClient.assertReady()
+      const layer = layerStore.get(layerId)
+      if (!layer) throw new Error(`レイヤーが見つかりません: ${layerId}`)
+      const ctx = makeEeContext(ee, { getMapView, log })
+      return exportLayerFromEE({ ee, layer, bounds, scale, crs, bands, format, ctx, log })
+    },
+    [geeClient, getMapView, log],
+  )
+
+  // 表示タイル（raw）のクライアントモザイク → GeoTIFF Blob。
+  const exportLayerTiles = useCallback(
+    async ({ layerId, bounds, z, onProgress }) => {
+      const layer = layerStore.get(layerId)
+      if (!layer) throw new Error(`レイヤーが見つかりません: ${layerId}`)
+      const result = await exportRawLayerTiles({ layer, bounds, z, authHeader: geeClient.authHeader?.() ?? null, onProgress })
+      log?.(`タイルから GeoTIFF 作成: ${layer.name} ${result.width}×${result.height}px（${result.tileCount} タイル, z${z}）`)
+      return result
+    },
+    [geeClient, log],
+  )
+
   const clearLayers = useCallback(() => {
     layerStore.clear()
     tileCache.clear()
@@ -178,5 +204,7 @@ export function useLayerActions({ geeClient, geeReady, tileCache, getMapView, fi
     rebuildLayer,
     markLayerStale,
     clearLayers,
+    exportLayerViaEE,
+    exportLayerTiles,
   }
 }

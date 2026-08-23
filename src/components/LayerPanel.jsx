@@ -5,6 +5,7 @@
 // 関係: layers は layer-store の配列。各操作は App 経由で useLayerActions に伝わる。
 import { useState } from 'react'
 import LayerDetailModal from './LayerDetailModal'
+import ExportLayerModal from './ExportLayerModal'
 import { COLORMAP_NAMES } from '../gee/pipeline.js'
 
 const STATUS_LABEL = {
@@ -15,7 +16,7 @@ const STATUS_LABEL = {
   ready: '',
 }
 
-function LayerRow({ layer, onToggle, onZoom, onRemove, onRebuild, onOpacity, onSpecChange, onShowDetail }) {
+function LayerRow({ layer, onToggle, onZoom, onRemove, onRebuild, onOpacity, onSpecChange, onShowDetail, onExport }) {
   const isRaster = layer.kind === 'ee-raster'
   const isRaw = isRaster && layer.spec?.mode === 'raw'
   const status = layer.runtime?.status ?? 'ready'
@@ -37,6 +38,14 @@ function LayerRow({ layer, onToggle, onZoom, onRemove, onRebuild, onOpacity, onS
         </span>
         <button className="icon-btn" onClick={() => onShowDetail(layer)} title="レイヤー詳細">
           ⓘ
+        </button>
+        <button
+          className="icon-btn"
+          onClick={() => onExport(layer)}
+          title={isRaster ? 'エクスポート（GeoTIFF / PNG）' : 'GeoJSON を保存'}
+          disabled={isRaster && status !== 'ready'}
+        >
+          ⤓
         </button>
         {layer.bounds && (
           <button className="icon-btn" onClick={() => onZoom(layer.layerId)} title="この範囲にズーム">
@@ -114,9 +123,16 @@ function LayerRow({ layer, onToggle, onZoom, onRemove, onRebuild, onOpacity, onS
   )
 }
 
-function LayerPanel({ layers, onToggle, onZoom, onRemove, onRebuild, onOpacity, onSpecChange }) {
+function LayerPanel({ layers, onToggle, onZoom, onRemove, onRebuild, onOpacity, onSpecChange, onExportVector, onExportViaEE, onExportTiles, getMapView }) {
   const [detailLayerId, setDetailLayerId] = useState(null)
+  const [exportLayerId, setExportLayerId] = useState(null)
   const detailLayer = layers.find((l) => l.layerId === detailLayerId) ?? null
+  const exportLayer = layers.find((l) => l.layerId === exportLayerId) ?? null
+
+  const handleExport = (layer) => {
+    if (layer.kind === 'vector') onExportVector?.(layer.layerId)
+    else setExportLayerId(layer.layerId)
+  }
 
   return (
     <div className="layer-panel">
@@ -138,11 +154,22 @@ function LayerPanel({ layers, onToggle, onZoom, onRemove, onRebuild, onOpacity, 
               onOpacity={onOpacity}
               onSpecChange={onSpecChange}
               onShowDetail={(layer) => setDetailLayerId(layer.layerId)}
+              onExport={handleExport}
             />
           ))}
         </ul>
       )}
       {detailLayer && <LayerDetailModal key={detailLayer.layerId} layer={detailLayer} onClose={() => setDetailLayerId(null)} />}
+      {exportLayer && (
+        <ExportLayerModal
+          key={exportLayer.layerId}
+          layer={exportLayer}
+          getMapView={getMapView}
+          onExportViaEE={onExportViaEE}
+          onExportTiles={onExportTiles}
+          onClose={() => setExportLayerId(null)}
+        />
+      )}
     </div>
   )
 }

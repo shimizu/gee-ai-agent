@@ -18,6 +18,8 @@ import { RawTileCache } from './gee/tile-cache.js'
 import { getColormapTexture } from './gee/colormap-registry.js'
 import { loadSetting, saveSetting, SETTINGS_KEYS } from './data/settings.js'
 import { uuid } from './utils/ids.js'
+import { downloadBlob } from './utils/download.js'
+import { buildDatasetExport, layerToGeoJson, safeFilename } from './data/export-formats.js'
 
 import Header from './components/Header'
 import GeeAuthBadge from './components/GeeAuthBadge'
@@ -149,6 +151,8 @@ function App() {
     rebuildLayer,
     markLayerStale,
     clearLayers,
+    exportLayerViaEE,
+    exportLayerTiles,
   } = useLayerActions({ geeClient, geeReady, tileCache, getMapView, fitBounds, log })
 
   // タイル取得エラー（mapid 失効など）。同じレイヤーで連続したら stale にする。
@@ -172,6 +176,35 @@ function App() {
   // --- データセット / チャート ---
   const { datasetStore, datasets, removeDataset, clearDatasets } = useDatasetActions({ log })
   const { chartStore, chartsById, openChartId, openChart, closeChart, clearCharts } = useChartActions()
+
+  // --- エクスポート（ベクター GeoJSON / データセット CSV・JSON・GeoJSON） ---
+  const handleExportVector = useCallback(
+    (layerId) => {
+      const layer = layerStore.get(layerId)
+      const text = layerToGeoJson(layer)
+      if (!text) {
+        log(`GeoJSON を作れません: ${layerId}`)
+        return
+      }
+      downloadBlob(new Blob([text], { type: 'application/geo+json' }), safeFilename(layer.name || layerId, 'geojson'))
+      log(`GeoJSON 保存: ${layer.name}`)
+    },
+    [layerStore, log],
+  )
+  const handleExportDataset = useCallback(
+    (datasetId, format) => {
+      try {
+        const ds = datasetStore.get(datasetId)
+        const { text, mime, filename } = buildDatasetExport(ds, format)
+        downloadBlob(new Blob([text], { type: mime }), filename)
+        log(`データセット保存: ${ds.id} (${format})`)
+      } catch (e) {
+        log(`データセット保存失敗: ${String(e?.message ?? e)}`)
+        window.alert(String(e?.message ?? e))
+      }
+    },
+    [datasetStore, log],
+  )
 
   // --- ホバー（raw の実値） ---
   const { hoverItems, handleMouseMove, clearHover } = useMapHover({ layers, tileCache })
@@ -286,8 +319,12 @@ function App() {
               onRebuild={rebuildLayer}
               onOpacity={(id, opacity) => updateLayer(id, { opacity })}
               onSpecChange={updateLayerSpec}
+              onExportVector={handleExportVector}
+              onExportViaEE={exportLayerViaEE}
+              onExportTiles={exportLayerTiles}
+              getMapView={getMapView}
             />
-            <DatasetPanel datasets={datasets} onRemove={removeDataset} />
+            <DatasetPanel datasets={datasets} onRemove={removeDataset} onExport={handleExportDataset} />
           </div>
         ),
       },
@@ -314,6 +351,11 @@ function App() {
       updateLayerSpec,
       datasets,
       removeDataset,
+      handleExportVector,
+      handleExportDataset,
+      exportLayerViaEE,
+      exportLayerTiles,
+      getMapView,
       logs,
     ],
   )

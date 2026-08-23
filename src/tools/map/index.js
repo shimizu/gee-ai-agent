@@ -1,5 +1,5 @@
 // 地図ソース（レイヤー操作ツール。スキルは gee-viz / chart 側に含める）。
-import { ADD_VECTOR_LAYER, FIT_BOUNDS, GET_MAP_VIEW, LIST_LAYERS, REMOVE_LAYER, UPDATE_LAYER_STYLE } from './definitions.js'
+import { ADD_VECTOR_LAYER, EXPORT_LAYER, FIT_BOUNDS, GET_MAP_VIEW, LIST_LAYERS, REMOVE_LAYER, UPDATE_LAYER_STYLE } from './definitions.js'
 import { makeMapHandlers } from './handlers.js'
 
 export const mapSource = {
@@ -14,5 +14,6 @@ export const mapSource = {
       .register(GET_MAP_VIEW, () => h.getMapView())
       .register(FIT_BOUNDS, (input) => h.fitBounds(input))
       .register(ADD_VECTOR_LAYER, (input) => h.addVectorLayer(input))
+      .register(EXPORT_LAYER, (input) => h.exportLayer(input))
   },
 }
