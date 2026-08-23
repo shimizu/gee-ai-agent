@@ -1,0 +1,12 @@
+# 依存とビルド成果物
+node_modules/
+dist/
+
+# ログ・エディタ
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# 参照資料（別リポジトリ群）はコミットに含めない
+reference/
