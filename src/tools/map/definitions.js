@@ -1,0 +1,76 @@
+// 地図・レイヤー操作ツールの定義。
+export const LIST_LAYERS = {
+  name: 'list_layers',
+  description: '地図上のレイヤー一覧（layerId・名前・種別・モード・バンド・表示状態・スタイル）を返す。',
+  input_schema: { type: 'object', properties: {} },
+}
+
+export const REMOVE_LAYER = {
+  name: 'remove_layer',
+  description: '指定した layer_id のレイヤーを地図から削除する。',
+  input_schema: {
+    type: 'object',
+    properties: { layer_id: { type: 'string' } },
+    required: ['layer_id'],
+  },
+}
+
+export const UPDATE_LAYER_STYLE = {
+  name: 'update_layer_style',
+  description:
+    'レイヤーの表示を変更する。全レイヤー: opacity / visible / name。raw レイヤー: colormap / colormap_reversed / rescale（再計算なしで即時反映）。png レイヤーの vis 変更は ee_add_layer を同名で呼び直す。ベクター: color（[r,g,b]）/ radius。',
+  input_schema: {
+    type: 'object',
+    properties: {
+      layer_id: { type: 'string' },
+      opacity: { type: 'number', minimum: 0, maximum: 1 },
+      visible: { type: 'boolean' },
+      name: { type: 'string' },
+      colormap: { type: 'string' },
+      colormap_reversed: { type: 'boolean' },
+      rescale: { type: 'array', items: { type: 'number' }, minItems: 2, maxItems: 2 },
+      color: { type: 'array', items: { type: 'number' }, minItems: 3, maxItems: 3 },
+      radius: { type: 'number' },
+    },
+    required: ['layer_id'],
+  },
+}
+
+export const GET_MAP_VIEW = {
+  name: 'get_map_view',
+  description: '現在の地図表示範囲 bounds [west,south,east,north]・中心・ズームを返す。',
+  input_schema: { type: 'object', properties: {} },
+}
+
+export const FIT_BOUNDS = {
+  name: 'fit_bounds',
+  description: '地図を指定範囲にズームする。bounds [west,south,east,north]、または layer_id / dataset_id（lon/lat 列を持つもの）の範囲。',
+  input_schema: {
+    type: 'object',
+    properties: {
+      bounds: { type: 'array', items: { type: 'number' }, minItems: 4, maxItems: 4 },
+      layer_id: { type: 'string' },
+      dataset_id: { type: 'string' },
+    },
+  },
+}
+
+export const ADD_VECTOR_LAYER = {
+  name: 'add_vector_layer',
+  description:
+    'GeoJSON、または lon/lat 列を持つデータセットの行から点・線・面のベクターレイヤーを地図に追加する（例: 港の位置、EE の FeatureCollection 結果）。geojson は 2000 地物まで。',
+  input_schema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+      geojson: { type: 'object', description: 'GeoJSON FeatureCollection / Feature / Geometry。' },
+      dataset_id: { type: 'string', description: 'Dataset Store のデータセット（lon/lat 列、または ee_run の FeatureCollection 結果）。' },
+      lon_col: { type: 'string', description: '既定 lon' },
+      lat_col: { type: 'string', description: '既定 lat' },
+      color: { type: 'array', items: { type: 'number' }, minItems: 3, maxItems: 3, description: '[r,g,b] 0-255' },
+      radius: { type: 'number', description: '点の半径（px。既定 6）' },
+      fit_bounds: { type: 'boolean', description: '追加後にズームする（既定 true）' },
+    },
+    required: ['name'],
+  },
+}

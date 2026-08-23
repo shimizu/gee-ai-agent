@@ -1,0 +1,382 @@
+// アプリの唯一の結線点。
+//
+// 役割: 設定・GEE 認証・地図（MapLibre + deck.gl）・レイヤー・データセット・チャート・エージェントの
+//       各フックを依存順に結線する。UI コンポーネントは表示と入力のみを担い、推論・EE 実行・
+//       データ管理は agent/* ・gee/* ・tools/* ・data/* のモジュールが行う。
+// 関係: hooks/*（結線フック）、components/*、Layers/index.js。
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+import { useSettings } from './hooks/useSettings'
+import { useGeeClient } from './hooks/useGeeClient'
+import { useLayerActions } from './hooks/useLayerActions'
+import { useDatasetActions } from './hooks/useDatasetActions'
+import { useChartActions } from './hooks/useChartActions'
+import { useAgentSession } from './hooks/useAgentSession'
+import { useMapHover } from './hooks/useMapHover'
+
+import { RawTileCache } from './gee/tile-cache.js'
+import { getColormapTexture } from './gee/colormap-registry.js'
+import { loadSetting, saveSetting, SETTINGS_KEYS } from './data/settings.js'
+import { uuid } from './utils/ids.js'
+
+import Header from './components/Header'
+import GeeAuthBadge from './components/GeeAuthBadge'
+import ApiSettings from './components/ApiSettings'
+import Sidebar from './components/Sidebar'
+import TabbedPanel from './components/TabbedPanel'
+import MapView from './components/MapView'
+import ChatPanel from './components/ChatPanel'
+import ChartDialog from './components/ChartDialog'
+import LayerPanel from './components/LayerPanel'
+import DatasetPanel from './components/DatasetPanel'
+import ExecutionLog from './components/ExecutionLog'
+import AboutModal from './components/AboutModal'
+
+import './styles/app.css'
+
+const LOG_STORAGE = 'gee-agent.operation-log'
+const tileCache = new RawTileCache()
+
+function loadLogs() {
+  try {
+    const parsed = JSON.parse(globalThis.localStorage?.getItem(LOG_STORAGE) ?? '[]')
+    return Array.isArray(parsed) ? parsed.slice(-300) : []
+  } catch {
+    return []
+  }
+}
+
+function App() {
+  // --- ログ ---
+  const [logs, setLogs] = useState(loadLogs)
+  const log = useCallback((message) => {
+    setLogs((cur) => [...cur, { id: uuid(), message: `${new Date().toLocaleTimeString('ja-JP')} ${message}` }].slice(-300))
+  }, [])
+  useEffect(() => {
+    try {
+      globalThis.localStorage?.setItem(LOG_STORAGE, JSON.stringify(logs))
+    } catch {
+      // 無視
+    }
+  }, [logs])
+
+  // --- 設定 ---
+  const { settings, setField, save, deleteKeys, settingsOpen, setSettingsOpen, tests, testClaude, runGeeTest } = useSettings()
+
+  // --- GEE 認証 ---
+  const { geeClient, geeState, login: geeLogin, logout: geeLogout, testConnection: geeTest } = useGeeClient({
+    geeClientId: settings.geeClientId,
+    geeProject: settings.geeProject,
+    log,
+  })
+  const geeReady = geeState.status === 'ready'
+
+  // --- 地図（MapLibre の ref を保持し、fitBounds / getMapView を提供） ---
+  const mapRef = useRef(null)
+  const handleMapReady = useCallback((ref) => {
+    mapRef.current = ref
+  }, [])
+
+  const getMapView = useCallback(() => {
+    const map = mapRef.current
+    if (!map) return null
+    try {
+      const b = map.getBounds()
+      const c = map.getCenter()
+      return {
+        bounds: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()],
+        center: [c.lng, c.lat],
+        zoom: map.getZoom(),
+      }
+    } catch {
+      return null
+    }
+  }, [])
+
+  const fitBounds = useCallback((bounds) => {
+    const map = mapRef.current
+    if (!map || !Array.isArray(bounds) || bounds.length !== 4) return
+    let [w, s, e, n] = bounds
+    // 点 1 つなどの退化した範囲は少し広げて都市スケールで見せる。
+    if (e - w < 0.02) {
+      w -= 0.05
+      e += 0.05
+    }
+    if (n - s < 0.02) {
+      s -= 0.05
+      n += 0.05
+    }
+    try {
+      map.fitBounds(
+        [
+          [w, s],
+          [e, n],
+        ],
+        { padding: 60, duration: 700, maxZoom: 15 },
+      )
+    } catch {
+      // 無視
+    }
+  }, [])
+
+  // deck.gl の Device → カラーマップテクスチャ（raw レイヤー用）。
+  const [device, setDevice] = useState(null)
+  const [colormapTexture, setColormapTexture] = useState(null)
+  useEffect(() => {
+    if (!device) return
+    let cancelled = false
+    getColormapTexture(device)
+      .then((tex) => {
+        if (!cancelled) setColormapTexture(tex)
+      })
+      .catch((e) => log(`カラーマップ読込失敗: ${String(e?.message ?? e)}`))
+    return () => {
+      cancelled = true
+    }
+  }, [device, log])
+
+  // --- レイヤー ---
+  const {
+    layerStore,
+    layers,
+    addRasterLayer,
+    addVectorLayer,
+    removeLayer,
+    updateLayer,
+    updateLayerSpec,
+    toggleLayer,
+    zoomToLayer,
+    rebuildLayer,
+    markLayerStale,
+    clearLayers,
+  } = useLayerActions({ geeClient, geeReady, tileCache, getMapView, fitBounds, log })
+
+  // タイル取得エラー（mapid 失効など）。同じレイヤーで連続したら stale にする。
+  const tileErrorCountRef = useRef(new Map())
+  const handleTileError = useCallback(
+    (layerId, error) => {
+      const n = (tileErrorCountRef.current.get(layerId) ?? 0) + 1
+      tileErrorCountRef.current.set(layerId, n)
+      if (n === 6) {
+        log(`レイヤー ${layerId} のタイル取得が連続で失敗（期限切れの可能性）。レイヤータブの ↻ で再作成できます。`)
+        markLayerStale(layerId, error)
+        tileErrorCountRef.current.set(layerId, 0)
+      }
+    },
+    [log, markLayerStale],
+  )
+  const handleTileUnload = useCallback((layerId, index) => {
+    if (index) tileCache.delete(layerId, index)
+  }, [])
+
+  // --- データセット / チャート ---
+  const { datasetStore, datasets, removeDataset, clearDatasets } = useDatasetActions({ log })
+  const { chartStore, chartsById, openChartId, openChart, closeChart, clearCharts } = useChartActions()
+
+  // --- ホバー（raw の実値） ---
+  const { hoverItems, handleMouseMove, clearHover } = useMapHover({ layers, tileCache })
+
+  // --- エージェント ---
+  const { messages, isRunning, chatInput, setChatInput, chatInputRef, handleSubmit, handleAbort, handleResetChat } =
+    useAgentSession({
+      geeClient,
+      geeState,
+      datasetStore,
+      layerStore,
+      chartStore,
+      addRasterLayer,
+      addVectorLayer,
+      removeLayer,
+      updateLayer,
+      updateLayerSpec,
+      getMapView,
+      fitBounds,
+      layers,
+      datasets,
+      apiKey: settings.apiKey,
+      model: settings.model,
+      maxTokens: settings.maxTokens,
+      log,
+    })
+
+  // 開発専用: DevTools / ヘッドレス検証からストアを触れるようにする（本番バンドルには含めない）。
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    import('./gee/spike.js').then((m) => {
+      window.__geeDev = {
+        layerStore,
+        datasetStore,
+        chartStore,
+        tileCache,
+        addSyntheticRawLayer: () => {
+          const layer = m.makeSyntheticRawLayer({ tileCache })
+          if (layerStore.get(layer.layerId)) layerStore.update(layer.layerId, layer)
+          else layerStore.add(layer)
+        },
+      }
+    })
+  }, [layerStore, datasetStore, chartStore])
+
+  // 「新しい会話」= 会話・レイヤー・データセット・チャート・ログを全消去。
+  const handleNewConversation = useCallback(() => {
+    handleAbort()
+    clearLayers()
+    clearDatasets()
+    clearCharts()
+    handleResetChat()
+    setLogs([])
+  }, [handleAbort, clearLayers, clearDatasets, clearCharts, handleResetChat])
+
+  // --- About / パネル ---
+  const [aboutOpen, setAboutOpen] = useState(() => !loadSetting(SETTINGS_KEYS.introSeen))
+  const handleCloseAbout = useCallback(() => {
+    setAboutOpen(false)
+    saveSetting(SETTINGS_KEYS.introSeen, '1')
+  }, [])
+  const [rightOpen, setRightOpen] = useState(true)
+  const [rightWidth, setRightWidth] = useState(420)
+  const [rightHeight, setRightHeight] = useState(null)
+  const [activeTab, setActiveTab] = useState('chat')
+
+  const handleSaveSettings = useCallback(() => {
+    save()
+    geeClient.preload()
+  }, [save, geeClient])
+  // GEE 接続テストはクリックハンドラから同期的に開始する（ポップアップ許可のため await を挟まない）。
+  const handleTestGee = useCallback(() => {
+    runGeeTest(geeTest)
+  }, [runGeeTest, geeTest])
+
+  const chatDisabled = !settings.apiKey
+  const chatDisabledReason = '⚙ 設定 から Claude API キーを設定してください。'
+  const geeConfigured = Boolean(settings.geeClientId && settings.geeProject)
+
+  const tabs = useMemo(
+    () => [
+      {
+        id: 'chat',
+        label: 'チャット',
+        content: (
+          <ChatPanel
+            messages={messages}
+            isRunning={isRunning}
+            disabled={chatDisabled}
+            disabledReason={chatDisabledReason}
+            input={chatInput}
+            onInputChange={setChatInput}
+            inputRef={chatInputRef}
+            onSubmit={handleSubmit}
+            onAbort={handleAbort}
+            onReset={handleNewConversation}
+            chartsById={chartsById}
+            onOpenChart={openChart}
+          />
+        ),
+      },
+      {
+        id: 'layers',
+        label: `レイヤー${layers.length ? ` (${layers.length})` : ''}`,
+        content: (
+          <div className="layers-tab">
+            <LayerPanel
+              layers={layers}
+              onToggle={toggleLayer}
+              onZoom={zoomToLayer}
+              onRemove={removeLayer}
+              onRebuild={rebuildLayer}
+              onOpacity={(id, opacity) => updateLayer(id, { opacity })}
+              onSpecChange={updateLayerSpec}
+            />
+            <DatasetPanel datasets={datasets} onRemove={removeDataset} />
+          </div>
+        ),
+      },
+      { id: 'log', label: 'ログ', content: <ExecutionLog logs={logs} /> },
+    ],
+    [
+      messages,
+      isRunning,
+      chatDisabled,
+      chatInput,
+      setChatInput,
+      chatInputRef,
+      handleSubmit,
+      handleAbort,
+      handleNewConversation,
+      chartsById,
+      openChart,
+      layers,
+      toggleLayer,
+      zoomToLayer,
+      removeLayer,
+      rebuildLayer,
+      updateLayer,
+      updateLayerSpec,
+      datasets,
+      removeDataset,
+      logs,
+    ],
+  )
+
+  return (
+    <div className="app-shell">
+      <Header
+        rightOpen={rightOpen}
+        onToggleRight={() => setRightOpen((v) => !v)}
+        onShowAbout={() => setAboutOpen(true)}
+        geeSlot={
+          <GeeAuthBadge
+            state={geeState}
+            configured={geeConfigured}
+            onLogin={geeLogin}
+            onLogout={geeLogout}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+        }
+        settingsSlot={
+          <ApiSettings
+            settings={settings}
+            isOpen={settingsOpen}
+            onToggle={() => setSettingsOpen((v) => !v)}
+            onFieldChange={setField}
+            onSave={handleSaveSettings}
+            onDeleteKeys={deleteKeys}
+            tests={tests}
+            onTestClaude={testClaude}
+            onTestGee={handleTestGee}
+          />
+        }
+      />
+      <div className="workspace">
+        <MapView
+          layers={layers}
+          colormapTexture={colormapTexture}
+          hoverItems={hoverItems}
+          onMapReady={handleMapReady}
+          onDeviceInitialized={setDevice}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={clearHover}
+          onTileError={handleTileError}
+          onTileUnload={handleTileUnload}
+        />
+        <Sidebar
+          side="right"
+          open={rightOpen}
+          width={rightWidth}
+          onWidthChange={setRightWidth}
+          height={rightHeight}
+          onHeightChange={setRightHeight}
+          minWidth={300}
+          maxWidth={760}
+        >
+          <TabbedPanel tabs={tabs} activeId={activeTab} onTabChange={setActiveTab} />
+        </Sidebar>
+      </div>
+
+      <ChartDialog chart={openChartId ? chartsById.get(openChartId) : null} onClose={closeChart} />
+      {aboutOpen && <AboutModal onClose={handleCloseAbout} />}
+    </div>
+  )
+}
+
+export default App
