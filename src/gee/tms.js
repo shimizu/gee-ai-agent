@@ -54,6 +54,20 @@ export function createWebMercatorQuadTms({ maxZoom = 24, tileSize = 256 } = {}) 
   }
 }
 
+// z/x/y タイルの EPSG:3857 アフィン変換（computePixels の grid 用）。
+export function tileAffineTransform({ x, y, z }, tileSize = 256) {
+  const tileMeters = (2 * MERCATOR_ORIGIN) / 2 ** z
+  const res = tileMeters / tileSize
+  return {
+    scaleX: res,
+    shearX: 0,
+    translateX: -MERCATOR_ORIGIN + x * tileMeters,
+    shearY: 0,
+    scaleY: -res,
+    translateY: MERCATOR_ORIGIN - y * tileMeters,
+  }
+}
+
 let descriptor = null
 export function getWebMercatorDescriptor() {
   descriptor ??= new TileMatrixSetAdaptor(createWebMercatorQuadTms(), {

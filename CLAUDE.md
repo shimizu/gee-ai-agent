@@ -78,15 +78,19 @@ Claude とは別系統の第 2 の LLM 経路。ユーザーと音声で会話�
 - `ee-client.js` — 認証・初期化ステートマシン（idle/loading-lib/authenticating/initializing/ready/expired/error）。
 - `code-runner.js` — エージェントの EE JS を `new Function('ee','ctx', ...)` で実行（Code Editor 流）。禁止 API の
   ブラックリスト、タイムアウト、`resolveResult`（ee オブジェクトは evaluate）。
-- `map-service.js` — `createPngMap`（`applyVisualization` + `getMapId`）/ `createRawMap`（`getMapId({format:'GEO_TIFF', bands})`。
-  JS クライアントは `params.format` を `ee.rpc_convert.fileFormat` で変換し、vis 無しなら visualizationOptions は null）。
-  raw は `select(bands).toFloat().unmask(RAW_NODATA)` で番兵値を埋める。
-- `raw-tile.js` / `raster-texture.js` — タイル fetch → geotiff.js 復号 → `packBands`（1 band=r32float、2–4=rgba32float）→ luma.gl テクスチャ。
+- `map-service.js` — `createPngMap`（`applyVisualization` + `getMapId`）/ `createRawSource`（raw: `select(bands).toFloat()
+  .unmask(RAW_NODATA)` した式を `ee.Serializer.encodeCloudApi` で保持。**maps エンドポイントは `format:'GEO_TIFF'` でも可視化済み
+  8bit（0/255）を返すことが実機で判明したため、raw タイルは `image:computePixels` で取得する**）。`createRawMap` は参考実装。
+- `raw-tile.js` / `raster-texture.js` — `fetchComputePixelsTile`（POST `projects/{p}/image:computePixels`、grid = EPSG:3857 のタイル 1 枚、
+  Authorization 必須、429/503 は 1 回再試行）→ geotiff.js 復号 → `packBands`（1 band=r32float、2–4=rgba32float）→ luma.gl テクスチャ。
+  `tms.tileAffineTransform` が z/x/y → アフィン変換。runtime の `fetchTile(index)` を地図描画とタイルエクスポートで共用。
 - `tms.js` — WebMercatorQuad の TMS JSON を生成し `TileMatrixSetAdaptor` に渡す（EE の z/x/y と 1:1）。
 - `pipeline.js` — `[CreateTexture, FilterNoDataVal?, BAND_MATH?, LinearRescale, Colormap?, SetAlpha1]`。band math は事前定義のみ。
 - `colormap-registry.js` — `colormaps.png` → `decodeColormapSprite` → `createColormapTexture(device)`（device ごとにメモ化）。
 - `tile-cache.js` / `pixel-pick.js` — CPU 側 Float32Array のキャッシュと経緯度→画素参照（表示ズーム+2 から降順に探す）。
-- `layer-factory.js` — spec → runtime。raw の `getTileData` はここで 1 回だけ作る（参照安定が必須）。
+- `layer-factory.js` — spec → runtime。raw の `getTileData` はここで 1 回だけ作る（参照安定が必須）。新規追加時は
+  `computeViewStats`（表示範囲の min/max/count/2–98%）で空レイヤーを検出してエラーにし、raw の rescale 未指定なら自動設定
+  （`autoRescale`）。復元/再作成は `checkStats:false`。
 - `export-service.js` — EE 経由のエクスポート（`getDownloadURL`/`getThumbURL` の Promise 化、`buildDownloadParams`、
   `estimateDownloadBytes`: 1 リクエスト ≒48MB 上限の事前推定と scale 提案）。
 - `tile-mosaic.js` — 表示中の raw タイルをクライアントで結合し geotiff.js `writeArrayBuffer` で EPSG:3857 の float32 GeoTIFF に
@@ -129,6 +133,8 @@ deck.gl レイヤー配列を組む唯一の場所。png = `TileLayer`+`BitmapLa
 ## 守るべき前提
 - raw の `getTileData` は参照安定にする（変わると全タイル再取得）。spec の変更は `layerStore.updateSpec` で。
 - raw のマスク画素は `RAW_NODATA`（-999999）で埋め、GPU は `FilterNoDataVal`、ホバーは「なし」。
+- raw タイルは必ず computePixels 経由（maps の GEO_TIFF は 8bit 可視化済み）。最初の 1 枚は `raw タイル診断` をログに出す
+  （bands/型/値域）。`type=Uint8Array` が出たら可視化済みを掴んでいる。
 - `ee.Reducer` 等の動的クラスは `ee.initialize` 後にしか無い。ツールは必ず `geeClient.assertReady()` を通す。
 - `@google/earthengine`（Closure ビルド）は `ee.initialize` 内で `goog.global.ee`（= `window.ee`）を参照する。`ee-loader.js` が
   import 後に `window.ee = ee` を設定している（無いと "Cannot use 'in' operator to search for 'Classifier' in undefined"）。

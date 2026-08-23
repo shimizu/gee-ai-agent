@@ -53,6 +53,7 @@ ID・バンド名は以下をそのまま使う。一覧に無いものや自信
 - MODIS/061/MCD12Q1（LC_Type1 年次土地被覆 500 m）。
 - WorldPop/GP/100m/pop（人口 100 m）、CIESIN/GPWv411/GPW_Population_Count（~1 km）。
 - FAO/GAUL/2015/level0,1,2（国/州/郡 境界 FeatureCollection。ADM0_NAME, ADM1_NAME, ADM2_NAME）、USDOS/LSIB_SIMPLE/2017（国境 country_na）。
+  - **GAUL の名称は英語の慣用表記と違うことがある。** 日本の都道府県は訓令式ローマ字（千葉=Tiba、愛知=Aiti、福岡=Hukuoka、兵庫=Hyogo、岐阜=Gihu、静岡=Sizuoka、栃木=Totigi、千葉市など市名も同様）。filter 前に ee_describe で distinctValues を見るか、ee.Filter.stringContains で候補を確認し、size() が 0 なら別表記を試す。
 
 ### 海洋・大気汚染・火災
 - NASA/OCEANDATA/MODIS-Aqua/L3SMI（chlor_a, sst）、HYCOM/sea_temp_salinity（水温・塩分）、NOAA/CDR/OISST/V2_1（sst ×0.01 °C）。

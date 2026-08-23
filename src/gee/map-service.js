@@ -27,7 +27,19 @@ export async function createPngMap({ ee, image, vis = {} }) {
   }
 }
 
-// raw（float GeoTIFF タイル）。bandIds は最大 4 バンド。
+// raw の配信元。maps エンドポイントは fileFormat=GEO_TIFF でも可視化済み 8bit を返すため（実機で確認）、
+// raw は image:computePixels（タイルごとに EPSG:3857 の grid を指定）で float を取得する。ここでは式を
+// シリアライズして保持するだけで通信しない。
+export function createRawSource({ ee, image, bandIds, nodata = RAW_NODATA, project }) {
+  if (!Array.isArray(bandIds) || bandIds.length === 0) throw new Error('raw モードには bandIds が必要です。')
+  if (bandIds.length > 4) throw new Error('raw モードのバンド数は最大 4 です。')
+  if (!project) throw new Error('GEE プロジェクト ID が不明です（ログインし直してください）。')
+  const prepared = image.select(bandIds).toFloat().unmask(nodata, false)
+  const expression = ee.Serializer.encodeCloudApi(prepared)
+  return { kind: 'raw', source: 'computePixels', expression, bandIds, nodata, project, createdAt: Date.now() }
+}
+
+// （参考・スパイク用）maps エンドポイントの GEO_TIFF タイル。可視化済み 8bit が返るため本番では使わない。
 export async function createRawMap({ ee, image, bandIds, nodata = RAW_NODATA }) {
   if (!Array.isArray(bandIds) || bandIds.length === 0) throw new Error('raw モードには bandIds が必要です。')
   if (bandIds.length > 4) throw new Error('raw モードのバンド数は最大 4 です。')

@@ -4,8 +4,9 @@
 //       getMapId → タイル取得 → GeoTIFF 復号 → 統計値をコンソールに出す。結果は
 //       docs/spike-raw-tiles.md に記録する。本番バンドルには含めない（main.jsx で DEV 時のみ import）。
 import { loadEe } from './ee-loader.js'
-import { createRawMap, createPngMap, formatTileUrl } from './map-service.js'
-import { fetchRawTile } from './raw-tile.js'
+import { createRawMap, createPngMap, createRawSource, formatTileUrl } from './map-service.js'
+import { fetchRawTile, fetchComputePixelsTile } from './raw-tile.js'
+import { tileAffineTransform } from './tms.js'
 
 export async function runRawTileSpike({ z = 8, x = 227, y = 100 } = {}) {
   const ee = await loadEe()
@@ -37,6 +38,12 @@ export async function runRawTileSpike({ z = 8, x = 227, y = 100 } = {}) {
   }
   console.groupEnd()
 
+  console.group('[spike] computePixels tile (本番経路)')
+  const src = createRawSource({ ee, image, bandIds: ['elevation'], project: window.__geeDev?.geeClient?.project ?? ee.data.getProject?.() })
+  const cp = await fetchComputePixelsTile({ project: src.project, expression: src.expression, bandIds: ['elevation'], affine: tileAffineTransform({ x, y, z }), authHeader: ee.data.getAuthToken() })
+  console.log('computePixels decoded', cp && { width: cp.width, height: cp.height, bands: cp.bands.length, type: cp.rawType, sf: cp.sampleFormat, bits: cp.bitsPerSample, nodataTag: cp.nodata, sample: Array.from(cp.bands[0].slice(0, 5)) })
+  console.groupEnd()
+
   console.group('[spike] png map')
   const png = await createPngMap({ ee, image, vis: { min: 0, max: 3000, palette: ['000000', 'ffffff'] } })
   const pres = await fetch(formatTileUrl(png.urlFormat, { x, y, z }))
@@ -52,8 +59,7 @@ export function installSpike() {
 // 開発専用: GEE 無しで raw パイプラインを確認する合成レイヤー（経度で値が変わるグラデーション）。
 // window.__geeDev.addSyntheticRawLayer() で追加。deck.gl-raster の描画・カラーマップ・ホバーの検証用。
 export function makeSyntheticRawLayer({ layerId = 'lyr_demo', name = '合成 raw デモ', tileCache = null } = {}) {
-  const getTileData = async (tile, { device }) => {
-    const { x, y, z } = tile.index
+  const synth = ({ x, y, z }) => {
     const n = 2 ** z
     const size = 256
     const data = new Float32Array(size * size)
@@ -64,6 +70,13 @@ export function makeSyntheticRawLayer({ layerId = 'lyr_demo', name = '合成 raw
         data[j * size + i] = Math.sin((lng * Math.PI) / 45) * 50 + latT * 100
       }
     }
+    return { width: size, height: size, bands: [data], nodata: null }
+  }
+  const fetchTile = async (index) => synth(index)
+  const getTileData = async (tile, { device }) => {
+    const size = 256
+    const { bands } = synth(tile.index)
+    const data = bands[0]
     const { createRasterTexture, packBands } = await import('./raster-texture.js')
     const packed = packBands([data], size, size)
     const texture = createRasterTexture(device, packed, size, size)
@@ -80,6 +93,6 @@ export function makeSyntheticRawLayer({ layerId = 'lyr_demo', name = '合成 raw
     bandNames: ['v'],
     originPrompt: 'dev',
     createdAt: new Date().toISOString(),
-    runtime: { status: 'ready', kind: 'raw', bandIds: ['v'], getTileData, urlFormat: `${window.location.origin}/__synthetic/{z}/{x}/{y}.tif` },
+    runtime: { status: 'ready', kind: 'raw', bandIds: ['v'], getTileData, fetchTile },
   }
 }

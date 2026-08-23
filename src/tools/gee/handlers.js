@@ -25,6 +25,7 @@ export function makeEeContext(ee, deps) {
       if (!view?.bounds) throw new Error('地図表示範囲を取得できません。')
       return ee.Geometry.Rectangle(view.bounds, null, false)
     },
+    mapView: () => deps.getMapView?.() ?? null,
     geometry: deps.getAoiGeometry?.(ee) ?? null,
     log: (msg) => deps.log?.(`[ee] ${String(msg)}`),
     now: new Date().toISOString(),
@@ -86,10 +87,10 @@ export function makeGeeHandlers(deps) {
       nodata: RAW_NODATA,
     }
     if (mode === 'raw' && !spec.rescale) {
-      // rescale 未指定なら vis.min/max を流用、無ければ [0,1]。
+      // rescale 未指定なら vis.min/max を流用、無ければ null（layer-factory が表示範囲の 2–98 パーセンタイルで自動設定）。
       const mn = Array.isArray(input.vis?.min) ? input.vis.min[0] : input.vis?.min
       const mx = Array.isArray(input.vis?.max) ? input.vis.max[0] : input.vis?.max
-      spec.rescale = Number.isFinite(Number(mn)) && Number.isFinite(Number(mx)) ? [Number(mn), Number(mx)] : [0, 1]
+      spec.rescale = Number.isFinite(Number(mn)) && Number.isFinite(Number(mx)) ? [Number(mn), Number(mx)] : null
     }
     const layer = await deps.addRasterLayer({
       name: input.name,
@@ -110,12 +111,15 @@ export function makeGeeHandlers(deps) {
       mode,
       bandNames: layer.bandNames,
       bandIds: layer.runtime?.bandIds ?? undefined,
-      rescale: mode === 'raw' ? spec.rescale : undefined,
+      rescale: mode === 'raw' ? layer.spec?.rescale : undefined,
+      autoRescale: layer.runtime?.autoRescale ? true : undefined,
       colormap: mode === 'raw' ? spec.colormap : undefined,
+      dataRange: layer.runtime?.dataRange,
       hint:
-        mode === 'raw'
+        (mode === 'raw'
           ? 'update_layer_style で colormap / rescale を再計算なしに変更できます。地図上でホバーすると実値が表示されます。'
-          : 'vis を変えるには ee_add_layer を同じ name で呼び直してください（置き換わります）。',
+          : 'vis を変えるには ee_add_layer を同じ name で呼び直してください（置き換わります）。') +
+        ' dataRange は現在の表示範囲での実データ統計（min/max/2–98%）です。vis の min/max や rescale がこの範囲から大きく外れていないか確認してください。',
     }
   }
 
@@ -215,7 +219,24 @@ export function makeGeeHandlers(deps) {
           }),
           { timeoutMs: 120_000 },
         )
-        return { type: 'FeatureCollection', ...info }
+        // 文字列列（最大 5 列）の distinct 値（先頭 30 件）。境界名の表記ゆれ（例: GAUL の Tiba）をその場で把握するため。
+        const stringCols = Object.entries(info.firstProperties ?? {})
+          .filter(([k, v]) => typeof v === 'string' && !/^system:/.test(k))
+          .map(([k]) => k)
+          .slice(0, 5)
+        let distinct = {}
+        if (stringCols.length && Number(info.size) > 1) {
+          try {
+            const dict = ee.Dictionary.fromLists(
+              stringCols,
+              stringCols.map((c) => value.aggregate_array(c).distinct().slice(0, 30)),
+            )
+            distinct = await evaluate(dict, { timeoutMs: 120_000 })
+          } catch {
+            distinct = {}
+          }
+        }
+        return { type: 'FeatureCollection', ...info, distinctValues: Object.keys(distinct).length ? distinct : undefined }
       }
     } catch (e) {
       throw new Error(normalizeEeError(e), { cause: e })

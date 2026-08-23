@@ -22,3 +22,14 @@ test('長さ不一致・5 バンドはエラー', () => {
   assert.throws(() => packBands([new Float32Array(3)], 2, 2), /不一致/)
   assert.throws(() => packBands(Array.from({ length: 5 }, () => new Float32Array(1)), 1, 1), /最大 4/)
 })
+
+import { statScaleForBounds, resolveVisBands } from '../src/gee/layer-factory.js'
+
+test('statScaleForBounds は表示幅 ~512 画素分の scale（下限 30m）', () => {
+  assert.equal(statScaleForBounds(null), 1000)
+  assert.ok(statScaleForBounds([139, 35, 139.01, 35.01]) === 30)
+  const wide = statScaleForBounds([130, 30, 145, 45])
+  assert.ok(wide > 2000 && wide < 3000, String(wide))
+  assert.deepEqual(resolveVisBands({ vis: { bands: ['B4', 'B3', 'B2'] } }, ['B2', 'B3', 'B4']), ['B4'])
+  assert.deepEqual(resolveVisBands({ vis: {} }, ['NDVI']), ['NDVI'])
+})

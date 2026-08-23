@@ -21,7 +21,14 @@ await window.__geeSpike({ z: 6, x: 56, y: 25 })
 コンソールに `urlFormat`・HTTP ステータス・Content-Type・復号結果（width/height/bands/nodataTag/min/max/nodataPixels）
 と、png 側の CORS 確認が出る。
 
-## 確認したいこと（記録欄）
+## 結果（2026-08-24 実機）
+- `ee.data.getMapId({image, format:'GEO_TIFF'})` のタイルは **Uint8（sf=1, bits=8）、値 0/255** だった（既定可視化 [0,1] で飽和）。
+  つまり maps エンドポイントは fileFormat に関わらず可視化を通す → 方式 A/B は不採用。
+- 本番は **方式 C: `image:computePixels`**（`src/gee/raw-tile.js` `fetchComputePixelsTile`、grid は `tms.tileAffineTransform`）。
+  float32 GeoTIFF（sf=3）が返り、ホバー実値・GPU カラーマップが機能する。
+- 診断: レイヤー追加後にログの `raw タイル診断 …` 行で bands/型/値域を確認できる。`window.__geeSpike()` も computePixels の結果を出す。
+
+## 確認したいこと（記録欄・当初）
 | 項目 | 期待 | 結果 |
 |---|---|---|
 | raw の HTTP ステータス / Content-Type | 200 / image/tiff | （未実施） |

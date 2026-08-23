@@ -11,6 +11,8 @@ test('各形式を正規化する', () => {
   assert.deepEqual(normalizeRegion(g), { type: 'geojson', geometry: g })
   assert.deepEqual(normalizeRegion({ type: 'Feature', geometry: g, properties: {} }), { type: 'geojson', geometry: g })
   assert.equal(normalizeRegion(null), null)
+  assert.deepEqual(normalizeRegion('[139.7, 34.9, 140.9, 36.1]'), { type: 'bbox', bounds: [139.7, 34.9, 140.9, 36.1] })
+  assert.deepEqual(normalizeRegion('{"type":"map_view"}'), { type: 'map_view' })
 })
 
 test('不正な形式はエラー', () => {

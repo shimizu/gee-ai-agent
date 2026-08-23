@@ -245,6 +245,7 @@ function App() {
     if (!import.meta.env.DEV) return
     import('./gee/spike.js').then((m) => {
       window.__geeDev = {
+        geeClient,
         layerStore,
         datasetStore,
         chartStore,
@@ -256,7 +257,7 @@ function App() {
         },
       }
     })
-  }, [layerStore, datasetStore, chartStore])
+  }, [geeClient, layerStore, datasetStore, chartStore])
 
   // --- 音声セッション（Gemini Live）---
   // Gemini には run_prompt（入力＋送信）と capture_map だけを渡す。分析は Claude の担当。

@@ -39,6 +39,8 @@ test('スキルは非空で BASE の後ろに連結される', () => {
   assert.match(prompt, /スキル: Google Earth Engine データセット/)
   assert.match(prompt, /NOAA\/CFSR_HARMONIZED/)
   assert.match(prompt, /NASA\/GPM_L3\/IMERG_V07/)
+  assert.match(prompt, /Tiba/)
+  assert.match(prompt, /2–98 パーセンタイル/)
 })
 
 import { buildSystemBlocks, formatNow } from '../src/agent/system-context.js'

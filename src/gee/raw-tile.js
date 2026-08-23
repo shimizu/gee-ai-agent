@@ -10,6 +10,51 @@ function loadGeotiff() {
   return geotiffModule
 }
 
+const EE_BASE = 'https://earthengine.googleapis.com/v1'
+
+// image:computePixels のリクエスト本文（純関数）。grid は EPSG:3857 のタイル 1 枚分。
+export function buildComputePixelsBody({ expression, bandIds, affine, tileSize = 256, fileFormat = 'GEO_TIFF' }) {
+  return {
+    expression,
+    fileFormat,
+    bandIds,
+    grid: {
+      dimensions: { width: tileSize, height: tileSize },
+      affineTransform: affine,
+      crsCode: 'EPSG:3857',
+    },
+  }
+}
+
+// computePixels で 1 タイル分の float GeoTIFF を取得して復号する。
+// 認証必須（Authorization: Bearer）。429/503 は少し待って 1 回だけ再試行。
+export async function fetchComputePixelsTile({ project, expression, bandIds, affine, authHeader, signal, fetchImpl = globalThis.fetch, tileSize = 256 }) {
+  if (!authHeader) throw new Error('GEE の認証トークンがありません（再ログインしてください）。')
+  const url = `${EE_BASE}/projects/${encodeURIComponent(project)}/image:computePixels`
+  const body = JSON.stringify(buildComputePixelsBody({ expression, bandIds, affine, tileSize }))
+  const doFetch = () => fetchImpl(url, { method: 'POST', headers: { authorization: authHeader, 'content-type': 'application/json' }, body, signal })
+  let res = await doFetch()
+  if (res.status === 429 || res.status === 503) {
+    await new Promise((r) => setTimeout(r, 800 + Math.random() * 700))
+    res = await doFetch()
+  }
+  if (!res.ok) {
+    let message = `EE computePixels HTTP ${res.status}`
+    try {
+      const j = await res.json()
+      if (j?.error?.message) message += `: ${j.error.message}`
+    } catch {
+      // 本文なし
+    }
+    const err = new Error(message)
+    err.status = res.status
+    throw err
+  }
+  const buf = await res.arrayBuffer()
+  if (buf.byteLength === 0) return null
+  return decodeGeoTiffTile(buf)
+}
+
 // タイルを取得して復号する。データ無しタイル（404/204）は null。
 export async function fetchRawTile({ url, authHeader = null, signal, fetchImpl = globalThis.fetch }) {
   let res = await fetchImpl(url, { signal })
@@ -43,5 +88,14 @@ export async function decodeGeoTiffTile(buf) {
     nodata = null
   }
   const bands = Array.from(rasters, (b) => (b instanceof Float32Array ? b : Float32Array.from(b)))
-  return { width, height, bands, nodata }
+  // 診断用: 元のサンプル型（3=float, 1=uint, 2=int）とビット深度。
+  let sampleFormat = null
+  let bitsPerSample = null
+  try {
+    sampleFormat = image.getSampleFormat()
+    bitsPerSample = image.getBitsPerSample()
+  } catch {
+    // 無視
+  }
+  return { width, height, bands, nodata, sampleFormat, bitsPerSample, rawType: rasters[0]?.constructor?.name ?? null }
 }

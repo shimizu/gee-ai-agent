@@ -20,14 +20,21 @@ export function useLayerActions({ geeClient, geeReady, tileCache, getMapView, fi
 
   // ラスター runtime を作って layer に反映する（新規・置換・復元・再作成で共用）。
   const buildAndApply = useCallback(
-    async (layerId, spec) => {
+    async (layerId, spec, { checkStats = true } = {}) => {
       const ee = geeClient.assertReady()
       const ctx = makeEeContext(ee, { getMapView, log })
       layerStore.update(layerId, { runtime: { status: 'loading' } })
       tileCache.clearLayer(layerId)
       try {
-        const runtime = await buildRasterRuntime({ ee, spec, layerId, ctx, geeClient, tileCache })
-        layerStore.update(layerId, { runtime, bandNames: runtime.bandNames })
+        const runtime = await buildRasterRuntime({ ee, spec, layerId, ctx, geeClient, tileCache, checkStats, log })
+        const patch = { runtime, bandNames: runtime.bandNames }
+        // raw で rescale を自動決定した場合は spec に反映（UI のレンジ欄・次回の再作成に使う）。
+        if (runtime.autoRescale) patch.spec = { ...spec, rescale: runtime.autoRescale }
+        layerStore.update(layerId, patch)
+        if (runtime.dataRange) {
+          const d = runtime.dataRange
+          log?.(`表示範囲の統計 ${d.band}: min=${d.min} max=${d.max} p2=${d.p2} p98=${d.p98} count=${d.count}${runtime.autoRescale ? ` → rescale 自動 [${runtime.autoRescale.map((v) => Math.round(v * 1000) / 1000).join(', ')}]` : ''}`)
+        }
         return layerStore.get(layerId)
       } catch (e) {
         const message = String(e?.message ?? e)
@@ -131,7 +138,8 @@ export function useLayerActions({ geeClient, geeReady, tileCache, getMapView, fi
       const layer = layerStore.get(layerId)
       if (!layer || layer.kind !== 'ee-raster') return null
       try {
-        return await buildAndApply(layerId, layer.spec)
+        // 復元/再作成では表示範囲が違っても失敗させない（統計チェックなし）。
+        return await buildAndApply(layerId, layer.spec, { checkStats: false })
       } catch (e) {
         log?.(`レイヤー再作成失敗: ${layer.name}: ${String(e?.message ?? e)}`)
         return null

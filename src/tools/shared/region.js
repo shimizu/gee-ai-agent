@@ -8,8 +8,18 @@
 export function normalizeRegion(region) {
   if (region == null) return null
   if (typeof region === 'string') {
-    if (region === 'map_view' || region === 'viewport') return { type: 'map_view' }
-    throw new Error(`region の文字列形式は 'map_view' のみです: ${region}`)
+    const s = region.trim()
+    if (s === 'map_view' || s === 'viewport') return { type: 'map_view' }
+    // JSON 文字列（"[w,s,e,n]" や "{...}"）で来ることがあるので解釈する。
+    if (/^[[{]/.test(s)) {
+      try {
+        return normalizeRegion(JSON.parse(s))
+      } catch (e) {
+        if (e instanceof SyntaxError) throw new Error(`region の文字列を JSON として解釈できません: ${region}`, { cause: e })
+        throw e
+      }
+    }
+    throw new Error(`region の文字列形式は 'map_view' か JSON（[w,s,e,n] / {type:...}）です: ${region}`)
   }
   if (Array.isArray(region)) {
     if (region.length === 4 && region.every((v) => Number.isFinite(Number(v)))) {

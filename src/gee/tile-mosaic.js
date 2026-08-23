@@ -106,7 +106,13 @@ export async function writeGeoTiff3857({ bands, width, height, originX, originY,
 // レイヤーの配信タイルを取得 → モザイク → GeoTIFF Blob。
 export async function exportRawLayerTiles({ layer, bounds, z, authHeader = null, onProgress, fetchImpl }) {
   const runtime = layer?.runtime
-  if (!runtime?.urlFormat || layer.spec?.mode !== 'raw') throw new Error('raw モードの準備済みレイヤーのみタイルから保存できます。')
+  const fetchTile =
+    typeof runtime?.fetchTile === 'function'
+      ? runtime.fetchTile
+      : runtime?.urlFormat
+        ? (index) => fetchRawTile({ url: formatTileUrl(runtime.urlFormat, index), authHeader, fetchImpl })
+        : null
+  if (!fetchTile || layer.spec?.mode !== 'raw') throw new Error('raw モードの準備済みレイヤーのみタイルから保存できます。')
   const range = tileRangeForBounds(bounds, z)
   if (range.count > MAX_TILES) {
     throw new Error(`タイル数 ${range.count} が上限 ${MAX_TILES} を超えます。ズームを下げるか範囲を狭めてください。`)
@@ -122,9 +128,8 @@ export async function exportRawLayerTiles({ layer, bounds, z, authHeader = null,
   async function worker() {
     while (cursor < indices.length) {
       const index = indices[cursor++]
-      const url = formatTileUrl(runtime.urlFormat, index)
       try {
-        const decoded = await fetchRawTile({ url, authHeader, fetchImpl })
+        const decoded = await fetchTile(index, {})
         if (decoded) tiles.push({ index, ...decoded })
       } catch (e) {
         // 1 タイルの失敗は nodata 埋めにして続行（ログだけ残す）。

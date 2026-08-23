@@ -15,6 +15,12 @@ export const GEE_VIZ_SKILL = `## スキル: 地図レイヤーの可視化（ee_
 - 土地被覆 WorldCover: {bands:['Map'], min:10, max:100, palette:['006400','ffbb22','ffff4c','f096ff','fa0000','b4b4b4','f0f0f0','0064c8','0096a0','00cf75','fae6a0']}（クラス値 10..100 は連続ではないので注意。代わりに remap で 0..10 にしてもよい）
 - 夜間光: {bands:['avg_rad'], min:0, max:60, palette:['000000','ffcc00','ffffff']}
 
+### raw の rescale（表示レンジ）の決め方
+- rescale を省略すると、ee_add_layer が**現在の表示範囲の 2–98 パーセンタイルで自動設定**する（結果の rescale / dataRange を見て説明する）。
+- 自分で決めるときは先に ee_run の reduceRegion（ee.Reducer.percentile([2,98]) や minMax）で実データの範囲を確認する。実データが範囲外（例: 全画素が上限超え）だと一色に塗り潰される。
+- 表示後に濃淡が不自然なら update_layer_style で rescale を dataRange に合わせる。
+- 解像度が粗いデータ（IMERG ~11 km, CFSR ~55 km など）を小さな領域で clip して raw 表示すると、画素が数十個しか無く濃淡が出にくい。その場合は clip せず広めに表示する、または png（vis に min/max と明示パレット）で EE 側に可視化させる。
+
 ### raw の指定例
 - NDVI: mode:'raw', rescale:[-0.2, 0.9], colormap:'rdylgn'
 - 標高: mode:'raw', rescale:[0, 3000], colormap:'terrain'
