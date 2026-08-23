@@ -25,27 +25,8 @@ export const GEE_CORE_SKILL = `## スキル: Earth Engine コードの書き方�
 - 日付は ee.Date / filterDate('YYYY-MM-DD','YYYY-MM-DD')。終了日は排他的。
 - 可視化は EE の visualize ではなく ee_add_layer の vis（png）か rescale/colormap（raw）に渡す。
 
-### 主要データセット（ID / 主バンド / 解像度 / 備考）
-- COPERNICUS/S2_SR_HARMONIZED — B2,B3,B4,B8(10m), B11,B12(20m), SCL, QA60 — 2017〜 — 光学。真色 [B4,B3,B2] 0–3000。
-- COPERNICUS/S1_GRD — VV, VH（10m）— SAR。'instrumentMode'=='IW' でフィルタ。洪水・船舶検出に。値は dB。
-- LANDSAT/LC08/C02/T1_L2, LANDSAT/LC09/C02/T1_L2 — SR_B2..SR_B7（30m）, ST_B10 — 2013〜 — スケール 0.0000275, オフセット −0.2。
-- MODIS/061/MOD13Q1 — NDVI, EVI（250m, 16 日）— 0.0001 倍。
-- MODIS/061/MOD11A2 — LST_Day_1km（1km, 8 日）— 0.02 倍 K。
-- NOAA/VIIRS/DNB/MONTHLY_V1/VCMSLCFG — avg_rad（夜間光, 月次, ~500m）— 2014〜。cf_cvg で雲カバーの少ない月を選ぶ。
-- NASA/VIIRS/002/VNP46A2 — DNB_BRDF_Corrected_NTL（夜間光, 日次）。
-- UCSB-CHG/CHIRPS/DAILY — precipitation（mm/日, ~5.5km）。
-- ECMWF/ERA5_LAND/DAILY_AGGR — temperature_2m, total_precipitation_sum（~11km, 日次）。K と m。
-- USGS/SRTMGL1_003 — elevation（30m）。NASA/NASADEM_HGT/001 も可。
-- ESA/WorldCover/v200 — Map（10m 土地被覆 2021）。クラス値 10 樹木, 20 低木, 30 草地, 40 農地, 50 建物, 60 裸地, 80 水域, 90 湿地, 95 マングローブ。
-- GOOGLE/DYNAMICWORLD/V1 — label, built, water, trees…（10m, 2015〜, 日次確率）。built の平均で市街地変化。
-- JRC/GSW1_4/GlobalSurfaceWater — occurrence, seasonality（30m）。JRC/GSW1_4/MonthlyHistory で月別水面。
-- WorldPop/GP/100m/pop — population（100m, 年別）。
-- CIESIN/GPWv411/GPW_Population_Count — population_count（~1km）。
-- FAO/GAUL/2015/level0, level1, level2 — 国/州/郡の境界（FeatureCollection。ADM0_NAME 等）。
-- USDOS/LSIB_SIMPLE/2017 — 国境（country_na）。
-- COPERNICUS/CORINE/V20/100m/2018 — landcover（欧州）。
-- JAXA/ALOS/AW3D30/V3_2 — DSM（30m）。
-- NOAA/GFS0P25 / NASA/GPM_L3/IMERG_V07 — 気象・降水（時間別）。
+### データセットの選び方
+「GEE データセット」スキルの一覧から選ぶ（降水は NASA/GPM_L3/IMERG_V07、気温・風などの気象は NOAA/CFSR_HARMONIZED が第一候補）。一覧に無い ID は ee_describe で確認してから使う。
 
 ### やってはいけないこと
 - バンド名・アセット ID を推測して使う（まず ee_describe）。

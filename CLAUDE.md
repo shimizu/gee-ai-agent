@@ -109,7 +109,8 @@ deps の形は `src/tools/register-tools.js` 先頭のコメント参照。**ツ
 ### エージェント層（`src/agent/`）— web-gis-ai-agent のパターンを踏襲
 `runtime.js`（tool use ループ、`is_error` で自己修正、`TOOL_RESULT_CHAR_CAP`）、`claude-client.js`（直叩き・リトライ・
 プロンプトキャッシュ）、`tool-registry.js`、`compaction.js`、`conversation-store.js`、`system-prompt.js` + `skills/`
-（`gee-core` / `gee-viz` / `chart` / `portwatch` / `portwatch-x-gee`。1 ドメイン 1 ファイルの Markdown 文字列）。
+（`gee-core` / `gee-datasets`〔用途別データセット。降水は NASA/GPM_L3/IMERG_V07、気温・風など気象は NOAA/CFSR_HARMONIZED が第一候補〕/ `gee-viz` / `chart` /
+`portwatch` / `portwatch-x-gee`。1 ドメイン 1 ファイルの Markdown 文字列）。
 
 ### データ層（`src/data/`）
 `layer-store.js`（spec のみ永続化。runtime はリロード後に再作成）、`dataset-store.js`（要約 localStorage + 行 IndexedDB）、

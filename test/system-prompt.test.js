@@ -36,4 +36,18 @@ test('スキルは非空で BASE の後ろに連結される', () => {
   assert.ok(prompt.startsWith(BASE_SYSTEM_PROMPT.trim()))
   assert.match(prompt, /スキル: IMF PortWatch/)
   assert.match(prompt, /スキル: Earth Engine コードの書き方/)
+  assert.match(prompt, /スキル: Google Earth Engine データセット/)
+  assert.match(prompt, /NOAA\/CFSR_HARMONIZED/)
+  assert.match(prompt, /NASA\/GPM_L3\/IMERG_V07/)
+})
+
+import { buildSystemBlocks, formatNow } from '../src/agent/system-context.js'
+
+test('system の揮発ブロックに現在日時が入り、日付の自己判断を禁じる', () => {
+  const blocks = buildSystemBlocks({ layers: [], datasets: [], geeState: { status: 'idle' }, now: new Date(2026, 7, 23, 14, 5) })
+  assert.equal(blocks.length, 2)
+  assert.match(blocks[1].text, /## 現在日時\n2026-08-23（日）14:05/)
+  assert.match(blocks[1].text, /未来\/過去を判断しない/)
+  assert.match(formatNow(new Date(2026, 0, 5, 9, 30)), /^2026-01-05（月）09:30 ローカル時刻（UTC[+-]\d+）$/)
+  assert.match(BASE_SYSTEM_PROMPT, /日付の扱い/)
 })

@@ -13,10 +13,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { runAgent } from '../agent/runtime'
 import { callClaude } from '../agent/claude-client'
 import { composeSystemPrompt } from '../agent/system-prompt'
+import { buildSystemBlocks } from '../agent/system-context.js'
 import { ConversationStore } from '../agent/conversation-store'
 import { createToolRegistry } from '../tools/register-tools'
-import { summarizeLayer } from '../tools/map/handlers.js'
-import { roundBounds } from '../utils/format.js'
 import { uuid } from '../utils/ids.js'
 
 const conversationStore = new ConversationStore()
@@ -31,45 +30,6 @@ function loadChatView() {
   } catch {
     return []
   }
-}
-
-// 安定プレフィックス（BASE+スキル）と揮発ブロック（GEE 状態・レイヤー・データセット・表示範囲）を
-// 別ブロックにして、安定部分のプロンプトキャッシュを効かせる。
-export function buildSystemBlocks({ layers, datasets, geeState, mapView }) {
-  const blocks = [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }]
-  const parts = []
-  parts.push(
-    geeState?.status === 'ready'
-      ? `## GEE 状態\n- 認証: ready / project: ${geeState.project}`
-      : `## GEE 状態\n- 未ログイン（status: ${geeState?.status ?? 'idle'}）。GEE 系ツールは失敗します。ユーザーにヘッダーの「GEE ログイン」を案内してください。PortWatch のツールは使えます。`,
-  )
-  if (layers?.length) {
-    const list = layers
-      .map((l) => {
-        const s = summarizeLayer(l)
-        const extra =
-          l.kind === 'ee-raster'
-            ? `${s.mode} bands=[${(s.bandNames ?? []).join(',')}]${s.mode === 'raw' ? ` colormap=${s.colormap} rescale=[${(s.rescale ?? []).join(',')}]` : ''} status=${s.status}`
-            : `vector ${s.geomType ?? '?'} ${s.featureCount ?? '?'} 地物`
-        return `- ${l.layerId} "${l.name}" ${extra}${l.visible === false ? ' (非表示)' : ''}`
-      })
-      .join('\n')
-    parts.push(`## 現在のレイヤー\n${list}`)
-  }
-  if (datasets?.length) {
-    const list = datasets
-      .map(
-        (d) =>
-          `- ${d.id} "${d.title}" ${d.recordCount} 行 cols=[${(d.columns ?? []).slice(0, 12).join(',')}]${d.dateRange ? ` ${d.dateRange.from}〜${d.dateRange.to}` : ''} source=${d.source}`,
-      )
-      .join('\n')
-    parts.push(`## データセット\n${list}`)
-  }
-  if (mapView?.bounds) {
-    parts.push(`## 現在の地図表示範囲\nbounds=[${roundBounds(mapView.bounds, 2).join(', ')}] zoom=${Math.round(mapView.zoom * 10) / 10}`)
-  }
-  blocks.push({ type: 'text', text: parts.join('\n\n'), cache_control: { type: 'ephemeral' } })
-  return blocks
 }
 
 function shortInput(input) {
@@ -171,7 +131,7 @@ export function useAgentSession({
           instruction: content,
           messages: conversationStore.getMessages(),
           toolRegistry,
-          system: buildSystemBlocks({ layers, datasets, geeState, mapView: getMapView?.() }),
+          system: buildSystemBlocks({ systemPrompt: SYSTEM_PROMPT, layers, datasets, geeState, mapView: getMapView?.() }),
           signal: controller.signal,
           callModel: (req) => callClaude({ ...req, apiKey, model, maxTokens }),
           onEvent: (event) => {

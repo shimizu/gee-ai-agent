@@ -55,8 +55,17 @@ export function formatGeeStateForVoice(geeState) {
     : '## GEE: 未ログイン（衛星データの分析は失敗します。ヘッダーの「GEE ログイン」を押すようユーザーに伝えてください。港のデータ（PortWatch）は使えます）'
 }
 
-export function buildContextBlock({ layers = [], datasets = [], geeState } = {}) {
-  const blocks = [formatGeeStateForVoice(geeState), `## 現在のレイヤー\n${formatLayersForVoice(layers)}`]
+export function formatVoiceNow(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+export function buildContextBlock({ layers = [], datasets = [], geeState, now = new Date() } = {}) {
+  const blocks = [
+    `## 現在日時: ${formatVoiceNow(now)}（ユーザーの言う「今年」「先月」はこれを基準にし、日付が未来か過去かを自分の知識で判断しない）`,
+    formatGeeStateForVoice(geeState),
+    `## 現在のレイヤー\n${formatLayersForVoice(layers)}`,
+  ]
   const ds = formatDatasetsForVoice(datasets)
   if (ds) blocks.push(ds)
   return blocks.join('\n\n')
