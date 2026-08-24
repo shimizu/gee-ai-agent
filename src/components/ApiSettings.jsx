@@ -101,7 +101,7 @@ function ApiSettings({ settings, isOpen, onToggle, onFieldChange, onSave, onDele
           <TestResult result={tests?.gee} />
           <p className="field-help">
             Google Cloud Console で「OAuth 2.0 クライアント ID（ウェブ アプリケーション）」を作り、
-            <b>承認済みの JavaScript 生成元</b>にこのサイトのオリジン（開発時は http://localhost:5173）を登録してください。
+            <b>承認済みの JavaScript 生成元</b>にこのサイトのオリジン（https://shimizu.github.io/）を登録してください。
             プロジェクトは Earth Engine に登録済み（Earth Engine API 有効）である必要があります。
             保存後、ヘッダーの「GEE ログイン」から Google アカウントで認証します。
           </p>
