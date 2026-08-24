@@ -43,6 +43,11 @@ const HINTS = [
     test: /Geometry.*too many|Too many vertices|Geometry is too complex/i,
     hint: 'ジオメトリが複雑すぎます。simplify() で頂点を減らすか bounds() を使ってください。',
   },
+  {
+    // ツール実行中にサーバへ届かなくなった場合も、原因の切り分け方を示す。
+    test: /Failed to contact Earth Engine servers/i,
+    hint: 'EE サーバから応答がありませんでした（HTTP ステータス 0）。認証ではなく到達性の問題です。DevTools で window.__geeDiagnose() を実行すると、CSP・拡張機能・回線のどれで止まっているか切り分けられます。',
+  },
 ]
 
 export function normalizeEeError(error) {
@@ -53,6 +58,11 @@ export function normalizeEeError(error) {
 
 // 認証・初期化まわりのエラー文言に、設定の見直しポイントを添える（純関数・テスト対象）。
 const AUTH_HINTS = [
+  {
+    // EE クライアントが XHR status 0 のときに返す文言。認証ではなく到達性の問題。
+    test: /Failed to contact Earth Engine servers/i,
+    hint: 'サーバから応答がありませんでした（HTTP ステータス 0 = レスポンス無し）。OAuth の「承認済みの JavaScript 生成元」ではなく、CSP の connect-src・ブラウザ拡張（広告ブロッカー等）・プロキシによる遮断が疑われます。続く「EE 接続診断」を確認するか、DevTools で window.__geeDiagnose() を実行してください。',
+  },
   {
     test: /origin_mismatch|redirect_uri_mismatch|Not a valid origin|idpiframe_initialization_failed|invalid_request/i,
     hint: 'OAuth クライアント ID の「承認済みの JavaScript 生成元」に、このページのオリジン（例: http://localhost:5173）を追加してください。追加後、反映まで数分かかることがあります。',

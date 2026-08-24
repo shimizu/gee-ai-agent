@@ -26,7 +26,7 @@ npm test           # node --test（ブラウザ非依存の純ロジックのみ
 
 テストは Node 標準の `node --test`。ブラウザ依存（EE ライブラリ / WebGL / DOM）に触れない純ロジックだけを
 対象にする（chart-spec / tms / pixel-pick / raster-texture / ee-errors / code-runner / region /
-portwatch-client / metrics / dataset-store / layer-store / system-prompt / runtime / tool-registry）。
+portwatch-client / metrics / dataset-store / layer-store / system-prompt / runtime / tool-registry / ee-diagnostics）。
 描画・認証は `npm run dev` での手動確認で担保する。
 
 ## GEE の前提（利用者側の設定）
@@ -95,6 +95,10 @@ Claude とは別系統の第 2 の LLM 経路。ユーザーと音声で会話�
   `estimateDownloadBytes`: 1 リクエスト ≒48MB 上限の事前推定と scale 提案）。
 - `tile-mosaic.js` — 表示中の raw タイルをクライアントで結合し geotiff.js `writeArrayBuffer` で EPSG:3857 の float32 GeoTIFF に
   書き出す（`tileRangeForBounds` / `mosaicTiles` / `mercatorGeoTransform` / `writeGeoTiff3857` / `exportRawLayerTiles`、上限 64 タイル）。
+- `ee-diagnostics.js` — 接続失敗の切り分け。EE クライアントは XHR status 0 のとき常に
+  "Failed to contact Earth Engine servers" を返すため、CSP 違反イベントの記録・meta の `connect-src` 解析・
+  素の fetch による到達プローブ（401 が返れば到達している = CSP や拡張機能の問題ではない）を行い、日本語で説明する。
+  `ee-client.login()` が失敗時に自動で呼び、DevTools からは `window.__geeDiagnose()`（本番ビルドにも含む）。
 - `spike.js` — 開発専用。`window.__geeSpike()`（raw タイル配信の実機確認）と `window.__geeDev`（ストア・合成 raw レイヤー）。
 
 ### ツール層（`src/tools/`）— 拡張ポイント

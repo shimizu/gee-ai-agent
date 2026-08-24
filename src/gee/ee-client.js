@@ -14,14 +14,29 @@
 import { loadEe, preloadGis } from './ee-loader.js'
 import { evaluate } from './ee-promise.js'
 import { describeGeeAuthError } from './ee-errors.js'
+import { diagnoseEeConnectivity, installCspWatcher } from './ee-diagnostics.js'
 
 const EXPIRY_POLL_MS = 30_000
+
+// EE クライアントが XHR status 0（レスポンス無し）のときに返す文言。CSP・拡張機能・回線の
+// どれで潰されたのか区別できないため、これを検出したら接続診断を走らせる。
+const UNREACHABLE = /Failed to contact Earth Engine servers/i
 
 export class GeeClient {
   #state = { status: 'idle', clientId: '', project: '', error: '', authenticatedAt: null }
   #listeners = new Set()
   #ee = null
   #timer = null
+
+  constructor() {
+    // CSP 違反は「起きた瞬間」にしか拾えないので、最初から購読しておく。
+    installCspWatcher()
+    if (typeof globalThis !== 'undefined') {
+      // DevTools から手動で診断できる入口（本番ビルドにも残す）。
+      globalThis.__geeDiagnose = () =>
+        diagnoseEeConnectivity({ project: this.#state.project || undefined, authHeader: this.authHeader() })
+    }
+  }
 
   subscribe = (listener) => {
     this.#listeners.add(listener)
@@ -110,9 +125,17 @@ export class GeeClient {
       this.#set({ status: 'ready', authenticatedAt: Date.now(), error: '' })
       this.#watchExpiry()
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
+      let message = e instanceof Error ? e.message : String(e)
+      // 「サーバに届かない」系はここで原因を切り分け、結果をメッセージに畳み込む。
+      if (UNREACHABLE.test(message)) {
+        try {
+          message = `${message}\n\n${await diagnoseEeConnectivity({ project: proj, authHeader: this.authHeader() })}`
+        } catch {
+          // 診断自体の失敗は無視する（元のエラーを優先）。
+        }
+      }
       this.#set({ status: 'error', error: message })
-      throw e
+      throw e instanceof Error ? Object.assign(e, { message }) : new Error(message)
     }
   }
 

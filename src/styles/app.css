@@ -475,6 +475,8 @@ code {
   padding: 2px 0;
   border-bottom: 1px solid var(--color-border);
   word-break: break-all;
+  /* 接続診断など複数行のログを折り返し・改行を保って表示する。 */
+  white-space: pre-wrap;
 }
 
 /* ===== モーダル ===== */

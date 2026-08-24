@@ -28,7 +28,8 @@ export function useGeeClient({ geeClientId, geeProject, log }) {
   const testConnection = useCallback(
     async ({ clientId, project }) => {
       const result = await geeClient.testConnection({ clientId, project })
-      log?.(`GEE 接続テスト: ${result.ok ? 'OK' : 'NG'} ${result.message.split('\n')[0]}`)
+      // 失敗時は接続診断まで含んだ全文を残す（1 行目だけでは原因が分からないため）。
+      log?.(`GEE 接続テスト: ${result.ok ? `OK ${result.message.split('\n')[0]}` : `NG\n${result.message}`}`)
       return result
     },
     [log],
