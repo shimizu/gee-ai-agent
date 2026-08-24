@@ -144,6 +144,10 @@ deck.gl レイヤー配列を組む唯一の場所。png = `TileLayer`+`BitmapLa
 - `@google/earthengine`（Closure ビルド）は `ee.initialize` 内で `goog.global.ee`（= `window.ee`）を参照する。`ee-loader.js` が
   import 後に `window.ee = ee` を設定している（無いと "Cannot use 'in' operator to search for 'Classifier' in undefined"）。
 - `login()` はクリックハンドラから同期的に呼ぶ（GIS のポップアップ）。設定保存時に `preload()` で GIS を先読み。
+- 本番ビルドは **mangle（変数名短縮）を無効**にする（`build.minify: false` + `output.minify: {mangle:false, compress:true}`）。
+  EE は位置引数を名前付き引数へ対応させるため `fn.toString()` から引数名を読む（`ee.arguments.getParamNames_`）。
+  mangle すると `ee.Filter.eq(name, value)` が `function(t,n)` になり、本番だけ「Empty filters.」
+  「Missing required arguments: t, n」で全 EE ツールが壊れる。`eeParamNamesGuard` プラグインがビルド時に検査する。
 - CSP（vite.config.js）は `'unsafe-eval'` 必須（`new Function`）。外部ホストを増やしたら connect-src/img-src も更新。
   EE の認証付きリクエストは `content-earthengine.googleapis.com` へ切り替わるため、両ホストを許可する
   （欠けると本番だけ XHR status 0 =「Failed to contact Earth Engine servers」。dev は CSP 非適用で再現しない）。

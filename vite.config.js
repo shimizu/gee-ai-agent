@@ -37,10 +37,36 @@ function cspPlugin() {
   }
 }
 
+// EE の引数名がバンドル後も残っているかを検査する。mangle を再び有効にすると
+// ee.Filter.eq(name, value) が function(t, n) になり、本番だけ "Empty filters." /
+// "Missing required arguments: t, n" で全ツールが壊れるため、ビルドで気付けるようにする。
+function eeParamNamesGuard() {
+  const PROBE = 'ee.Filter.eq=function('
+  return {
+    name: 'assert-ee-param-names',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const chunk = Object.values(bundle).find((c) => c.type === 'chunk' && c.code?.includes(PROBE))
+      if (!chunk) {
+        // EE 側の実装が変わった可能性。壊れたと決めつけず警告に留める。
+        this.warn(`${PROBE} が見つかりませんでした。EE の引数名チェックを見直してください。`)
+        return
+      }
+      const params = chunk.code.slice(chunk.code.indexOf(PROBE) + PROBE.length).split(')')[0]
+      if (params !== 'name,value') {
+        this.error(
+          `EE の引数名が失われています（ee.Filter.eq の引数が "${params}"）。` +
+            'build.minify / output.minify の mangle を無効のままにしてください。',
+        )
+      }
+    },
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './',
-  plugins: [react(), cspPlugin()],
+  plugins: [react(), cspPlugin(), eeParamNamesGuard()],
   optimizeDeps: {
     // @google/earthengine は Closure コンパイル済み CJS。ESM へプリバンドルする。geotiff は内部で
     // 圧縮デコーダを動的 import するため、事前に最適化して dev 時の再最適化（504）を避ける。
@@ -48,6 +74,12 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 3000,
+    // 変数名の短縮（mangle）は無効にする。@google/earthengine は位置引数を API の名前付き引数へ
+    // 対応させるために fn.toString() から引数名を正規表現で読む（ee.arguments.getParamNames_）ため、
+    // mangle されると ee.Filter.eq(name, value) が {t, n} になり "Empty filters." や
+    // "Missing required arguments: t, n" になる（dev は非 minify なので本番だけで再現する）。
+    // 圧縮・空白除去は残すので、増加は gzip で +150kB 程度。
+    minify: false,
     // AudioWorklet のソースは必ず実ファイルとして出す。data: URL にインライン化されると
     // worklet のモジュール取得は script-src の対象なので CSP（data: 不許可）で
     // "Unable to load a worklet's module." になる。
@@ -55,6 +87,8 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
+        // build.minify を切ったうえで rolldown の minifier を mangle 無しで動かす。
+        minify: { mangle: false, compress: true },
         codeSplitting: {
           groups: [
             { name: 'earthengine', test: /node_modules[\\/]@google[\\/]earthengine/, priority: 30 },
