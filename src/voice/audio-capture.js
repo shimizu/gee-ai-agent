@@ -4,12 +4,13 @@
 //       変換して onChunk へ流す。Gemini Live API は 16kHz を前提とするため AudioContext を
 //       16kHz で開くが、ブラウザが従わない場合もあるので実際のサンプルレートも返す。
 // 関係: useVoiceSession が start / stop を呼ぶ。変換は pcm.js（純関数）に委譲する。
-// ワークレットはソースを文字列で取り込み、Blob URL にして addModule する。
-// ?url だと Vite が小さいファイルを data: URL にインライン化し、環境によっては addModule が
-// 受け付けないため（DuckDB のワーカーを Blob で配っているのと同じ回避）。
-import workletSource from './pcm-worklet.js?raw'
-
+// ワークレットは new URL(..., import.meta.url) で同一オリジンの実ファイルとして配信する
+// （Vite がハッシュ付きアセットとして出力し、インライン化しない）。Blob URL や data: URL に
+// すると worklet のモジュールは script-src の対象なので CSP に blob:/data: が必要になり、
+// 本番で "Unable to load a worklet's module." になる。
 import { float32ToBase64Pcm16 } from './pcm.js'
+
+const WORKLET_URL = new URL('./pcm-worklet.js', import.meta.url)
 
 const TARGET_SAMPLE_RATE = 16000
 
@@ -35,9 +36,8 @@ export async function startAudioCapture({ onChunk, sampleRate = TARGET_SAMPLE_RA
   })
 
   const context = new AudioCtx({ sampleRate })
-  const workletUrl = URL.createObjectURL(new Blob([workletSource], { type: 'text/javascript' }))
   try {
-    await context.audioWorklet.addModule(workletUrl)
+    await context.audioWorklet.addModule(WORKLET_URL)
     const source = context.createMediaStreamSource(stream)
     const worklet = new AudioNode(context, 'pcm-capture')
     worklet.port.onmessage = (event) => {
@@ -71,7 +71,5 @@ export async function startAudioCapture({ onChunk, sampleRate = TARGET_SAMPLE_RA
     stream.getTracks().forEach((track) => track.stop())
     await context.close().catch(() => {})
     throw e
-  } finally {
-    URL.revokeObjectURL(workletUrl)
   }
 }

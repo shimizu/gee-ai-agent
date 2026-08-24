@@ -48,6 +48,10 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 3000,
+    // AudioWorklet のソースは必ず実ファイルとして出す。data: URL にインライン化されると
+    // worklet のモジュール取得は script-src の対象なので CSP（data: 不許可）で
+    // "Unable to load a worklet's module." になる。
+    assetsInlineLimit: (filePath) => (filePath.endsWith('pcm-worklet.js') ? false : undefined),
     sourcemap: true,
     rollupOptions: {
       output: {

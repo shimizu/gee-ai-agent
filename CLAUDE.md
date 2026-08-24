@@ -64,7 +64,7 @@ Claude とは別系統の第 2 の LLM 経路。ユーザーと音声で会話�
 **Gemini にアプリのツール（GEE / PortWatch / 地図）は渡さない**。渡すのは `run_prompt` / `capture_map` の 2 関数のみ。
 - `gemini-live-client.js` — `@google/genai` の `live.connect` を包む唯一の場所（動的 import）。`sendAudio / sendImage / sendText / sendToolResponses`。
 - `voice-tools.js` / `voice-instruction.js` — 関数宣言・ディスパッチ / system instruction・状況スナップショット・完了通知文（純関数・テスト対象）。
-- `audio-capture.js`（16kHz AudioWorklet → PCM16 base64）/ `audio-player.js`（24kHz PCM 再生キュー、割り込みで flush）/ `pcm.js`（純関数）/ `pcm-worklet.js`（`?raw` + Blob URL で addModule）。
+- `audio-capture.js`（16kHz AudioWorklet → PCM16 base64）/ `audio-player.js`（24kHz PCM 再生キュー、割り込みで flush）/ `pcm.js`（純関数）/ `pcm-worklet.js`（`new URL(..., import.meta.url)` で同一オリジンの実ファイルとして addModule。worklet のモジュール取得は script-src の対象なので blob:/data: は CSP で弾かれる。vite.config.js の `assetsInlineLimit` でこのファイルだけインライン化を無効化している）。
 - `gemini-test.js` — 接続テスト（`GET /v1beta/models`、課金なし）。
 - 地図スクショは `utils/capture-map.js` が MapLibre の canvas から JPEG を取る（`<Map preserveDrawingBuffer>` 必須）。
   `capture_map` では**画像を realtime input で先に送り、その後でツール応答を返す**（逆にするとモデルが画像を見ずに話す）。
