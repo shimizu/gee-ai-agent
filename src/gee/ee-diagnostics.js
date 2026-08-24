@@ -10,6 +10,10 @@
 //       結果をエラーメッセージ末尾に足す。DevTools からは window.__geeDiagnose() で単独実行できる。
 //       本番ビルドにも含める（再現するのが GitHub Pages 等の本番オリジンだけのため）。
 export const EE_API_ORIGIN = 'https://earthengine.googleapis.com'
+// EE の認証付きリクエストは Google API の content エンドポイントへ切り替わることがある。
+// CSP に入れ忘れると XHR が status 0 になるため、診断では両方を確認する。
+export const EE_CONTENT_ORIGIN = 'https://content-earthengine.googleapis.com'
+export const EE_ORIGINS = [EE_API_ORIGIN, EE_CONTENT_ORIGIN]
 
 // --- CSP 違反の記録 ---------------------------------------------------------
 const cspViolations = []
@@ -135,38 +139,35 @@ const KIND_LINES = {
 }
 
 // probe 結果と CSP 情報から、ログにそのまま出せる日本語の診断文を作る。
-export function describeConnectivity({
-  origin = '',
-  probe = null,
-  cspConnectSrc = null,
-  allowed = null,
-  violations = [],
-} = {}) {
+// probes は [{ origin, probe, allowed }] の配列（EE は 2 ホスト使う）。
+export function describeConnectivity({ origin = '', probes = [], cspConnectSrc = null, violations = [] } = {}) {
   const lines = ['--- EE 接続診断 ---']
   lines.push(`ページのオリジン: ${origin || '(不明)'}`)
 
-  if (probe) {
-    lines.push(`プローブ: GET ${probe.url}`)
-    if (probe.kind === 'http') {
-      const auth = probe.status === 401 || probe.status === 403
+  for (const entry of probes) {
+    const p = entry?.probe
+    if (!p) continue
+    lines.push(`プローブ: GET ${p.url}`)
+    if (p.kind === 'http') {
+      const auth = p.status === 401 || p.status === 403
       lines.push(
-        `結果: HTTP ${probe.status} — サーバまで到達しています。${
-          auth ? 'ネットワークは正常で、認証・権限の問題です（再ログイン、プロジェクトの EE 登録・API 有効化を確認）。' : ''
+        `結果: HTTP ${p.status} — サーバまで到達しています。${
+          auth ? '認証・権限の問題です（再ログイン、プロジェクトの EE 登録・API 有効化を確認）。' : ''
         }`,
       )
     } else {
-      lines.push(`結果: ${probe.kind}${probe.status != null ? ` (HTTP ${probe.status})` : ''} — ${KIND_LINES[probe.kind] ?? probe.error}`)
-      if (probe.error && probe.kind !== 'ok') lines.push(`fetch のエラー: ${probe.error}`)
+      lines.push(`結果: ${p.kind}${p.status != null ? ` (HTTP ${p.status})` : ''} — ${KIND_LINES[p.kind] ?? p.error}`)
+      if (p.error && p.kind !== 'ok') lines.push(`fetch のエラー: ${p.error}`)
+    }
+    if (entry.allowed === false) {
+      lines.push(`→ ${entry.origin} は CSP の connect-src に含まれていません。vite.config.js の CSP に追加してください。`)
     }
   }
 
   if (cspConnectSrc) {
     lines.push(`CSP connect-src: ${cspConnectSrc.join(' ')}`)
-    if (allowed === false) {
-      lines.push(`→ ${EE_API_ORIGIN} は connect-src に含まれていません。vite.config.js の CSP に追加してください。`)
-    } else if (allowed === true) {
-      lines.push(`→ ${EE_API_ORIGIN} は connect-src で許可されています（CSP は原因ではありません）。`)
-    }
+    const missing = probes.filter((e) => e.allowed === false).map((e) => e.origin)
+    if (missing.length === 0) lines.push('→ EE のホストはすべて connect-src で許可されています（CSP は原因ではありません）。')
   } else {
     lines.push('CSP meta: なし（開発サーバか、CSP 未注入のビルド）。')
   }
@@ -176,10 +177,11 @@ export function describeConnectivity({
     for (const v of violations.slice(-10)) lines.push(`  - ${v.violatedDirective}: ${v.blockedURI}`)
   }
 
-  // 到達できているのに EE クライアントだけ失敗する場合は、EE の XHR 特有の要因を示す。
-  if (probe && (probe.kind === 'ok' || probe.kind === 'http')) {
+  // 全ホストへ到達できているのに EE クライアントだけ失敗する場合は、XHR 特有の要因を示す。
+  const reachable = probes.filter((e) => e.probe && (e.probe.kind === 'ok' || e.probe.kind === 'http'))
+  if (probes.length > 0 && reachable.length === probes.length) {
     lines.push(
-      '素の fetch は通っているのに EE クライアントだけ失敗する場合は、拡張機能が XMLHttpRequest を横取りしているか、' +
+      '素の fetch はすべて通っているのに EE クライアントだけ失敗する場合は、拡張機能が XMLHttpRequest を横取りしているか、' +
         'OAuth トークンが取得できていない可能性があります。シークレットウィンドウ（拡張機能オフ）で再確認してください。',
     )
   }
@@ -193,9 +195,15 @@ export async function diagnoseEeConnectivity({ project, authHeader = null, fetch
   const origin = globalThis.location?.origin ?? ''
   const csp = readCspMeta(doc)
   const cspConnectSrc = parseConnectSrc(csp)
-  const allowed = isConnectAllowed(cspConnectSrc, `${EE_API_ORIGIN}/v1/`, origin)
-  const probe = await probeEeEndpoint({ project, authHeader, fetchImpl })
-  const text = describeConnectivity({ origin, probe, cspConnectSrc, allowed, violations: getCspViolations() })
+  const probes = []
+  for (const eeOrigin of EE_ORIGINS) {
+    probes.push({
+      origin: eeOrigin,
+      allowed: isConnectAllowed(cspConnectSrc, `${eeOrigin}/v1/`, origin),
+      probe: await probeEeEndpoint({ project, authHeader, fetchImpl, origin: eeOrigin }),
+    })
+  }
+  const text = describeConnectivity({ origin, probes, cspConnectSrc, violations: getCspViolations() })
   console.warn(text)
   return text
 }

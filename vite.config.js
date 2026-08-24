@@ -5,14 +5,17 @@ import react from '@vitejs/plugin-react'
 // - script-src: エージェントが書く EE コードを new Function で実行するため 'unsafe-eval' が必須。
 //   Google Identity Services（OAuth）は @google/earthengine が accounts.google.com から動的ロードする。
 // - connect-src: Claude API / Earth Engine REST・タイル / Google OAuth / PortWatch(ArcGIS) / CARTO ベースマップ。
+//   EE の認証付きリクエストは content-earthengine.googleapis.com（Google API の content エンドポイント）へ
+//   切り替わることがある。これを許可しないと XHR が status 0 になり
+//   "Failed to contact Earth Engine servers" になる（dev は CSP 非適用なので本番でのみ再現する）。
 // - generativelanguage.googleapis.com（https/wss）: Gemini Live（音声相談）。
 // - img-src: EE の png タイルと CARTO のスプライト。
 // 開発時(serve)は Vite/HMR がインライン script を注入するため適用しない。
 const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-eval' https://accounts.google.com https://apis.google.com",
-  "connect-src 'self' https://api.anthropic.com https://earthengine.googleapis.com https://oauth2.googleapis.com https://accounts.google.com https://www.googleapis.com https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://services9.arcgis.com https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://tiles.basemaps.cartocdn.com",
-  "img-src 'self' data: blob: https://earthengine.googleapis.com https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com",
+  "connect-src 'self' https://api.anthropic.com https://earthengine.googleapis.com https://content-earthengine.googleapis.com https://oauth2.googleapis.com https://accounts.google.com https://www.googleapis.com https://generativelanguage.googleapis.com wss://generativelanguage.googleapis.com https://services9.arcgis.com https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://tiles.basemaps.cartocdn.com",
+  "img-src 'self' data: blob: https://earthengine.googleapis.com https://content-earthengine.googleapis.com https://*.basemaps.cartocdn.com https://basemaps.cartocdn.com",
   "frame-src https://accounts.google.com",
   "style-src 'self' 'unsafe-inline' https://accounts.google.com",
   "font-src 'self' data:",

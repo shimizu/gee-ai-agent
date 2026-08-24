@@ -99,6 +99,7 @@ Claude とは別系統の第 2 の LLM 経路。ユーザーと音声で会話�
   "Failed to contact Earth Engine servers" を返すため、CSP 違反イベントの記録・meta の `connect-src` 解析・
   素の fetch による到達プローブ（401 が返れば到達している = CSP や拡張機能の問題ではない）を行い、日本語で説明する。
   `ee-client.login()` が失敗時に自動で呼び、DevTools からは `window.__geeDiagnose()`（本番ビルドにも含む）。
+  プローブは `earthengine.googleapis.com` と `content-earthengine.googleapis.com` の両方に対して行う。
 - `spike.js` — 開発専用。`window.__geeSpike()`（raw タイル配信の実機確認）と `window.__geeDev`（ストア・合成 raw レイヤー）。
 
 ### ツール層（`src/tools/`）— 拡張ポイント
@@ -144,6 +145,8 @@ deck.gl レイヤー配列を組む唯一の場所。png = `TileLayer`+`BitmapLa
   import 後に `window.ee = ee` を設定している（無いと "Cannot use 'in' operator to search for 'Classifier' in undefined"）。
 - `login()` はクリックハンドラから同期的に呼ぶ（GIS のポップアップ）。設定保存時に `preload()` で GIS を先読み。
 - CSP（vite.config.js）は `'unsafe-eval'` 必須（`new Function`）。外部ホストを増やしたら connect-src/img-src も更新。
+  EE の認証付きリクエストは `content-earthengine.googleapis.com` へ切り替わるため、両ホストを許可する
+  （欠けると本番だけ XHR status 0 =「Failed to contact Earth Engine servers」。dev は CSP 非適用で再現しない）。
 - `localStorage` キーは `gee-agent.*`。「新しい会話」で会話・レイヤー・データセット・チャート・ログを全消去。
 - deck.gl-raster は 0.8.0-beta.2 に固定。依存箇所は `Layers/index.js` と `gee/pipeline.js` / `gee/tms.js` に閉じ込める。
 

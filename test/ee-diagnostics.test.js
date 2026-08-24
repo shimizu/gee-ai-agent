@@ -7,6 +7,7 @@ import {
   describeConnectivity,
   probeEeEndpoint,
   EE_API_ORIGIN,
+  EE_CONTENT_ORIGIN,
 } from '../src/gee/ee-diagnostics.js'
 
 const CSP =
@@ -43,9 +44,14 @@ test('isConnectAllowed はホスト・ワイルドカード・self を判定す�
 test('describeConnectivity は 401 を「到達している」と説明する', () => {
   const text = describeConnectivity({
     origin: 'https://shimizu.github.io',
-    probe: { kind: 'http', status: 401, url: `${EE_API_ORIGIN}/v1/projects/p/algorithms`, error: '' },
+    probes: [
+      {
+        origin: EE_API_ORIGIN,
+        allowed: true,
+        probe: { kind: 'http', status: 401, url: `${EE_API_ORIGIN}/v1/projects/p/algorithms`, error: '' },
+      },
+    ],
     cspConnectSrc: parseConnectSrc(CSP),
-    allowed: true,
     violations: [],
   })
   assert.match(text, /HTTP 401/)
@@ -53,12 +59,36 @@ test('describeConnectivity は 401 を「到達している」と説明する', 
   assert.match(text, /CSP は原因ではありません/)
 })
 
+test('describeConnectivity は content- ホストが CSP 未許可なら名指しする', () => {
+  const text = describeConnectivity({
+    origin: 'https://shimizu.github.io',
+    probes: [
+      { origin: EE_API_ORIGIN, allowed: true, probe: { kind: 'ok', status: 200, url: `${EE_API_ORIGIN}/v1/x`, error: '' } },
+      {
+        origin: EE_CONTENT_ORIGIN,
+        allowed: false,
+        probe: { kind: 'csp', status: null, url: `${EE_CONTENT_ORIGIN}/v1/x`, error: 'Failed to fetch' },
+      },
+    ],
+    cspConnectSrc: parseConnectSrc(CSP),
+    violations: [{ violatedDirective: 'connect-src', blockedURI: `${EE_CONTENT_ORIGIN}/v1/x`, at: 0 }],
+  })
+  assert.match(text, /content-earthengine\.googleapis\.com は CSP の connect-src に含まれていません/)
+  // 1 つでも未許可があれば「すべて許可」とは言わない。
+  assert.doesNotMatch(text, /すべて connect-src で許可/)
+})
+
 test('describeConnectivity は CSP 未許可と違反イベントを指摘する', () => {
   const text = describeConnectivity({
     origin: 'https://shimizu.github.io',
-    probe: { kind: 'csp', status: null, url: `${EE_API_ORIGIN}/v1/x`, error: 'Failed to fetch' },
+    probes: [
+      {
+        origin: EE_API_ORIGIN,
+        allowed: false,
+        probe: { kind: 'csp', status: null, url: `${EE_API_ORIGIN}/v1/x`, error: 'Failed to fetch' },
+      },
+    ],
     cspConnectSrc: ["'self'"],
-    allowed: false,
     violations: [{ violatedDirective: 'connect-src', blockedURI: `${EE_API_ORIGIN}/v1/x`, at: 0 }],
   })
   assert.match(text, /connect-src に含まれていません/)
@@ -69,9 +99,14 @@ test('describeConnectivity は CSP 未許可と違反イベントを指摘する
 test('describeConnectivity は拡張機能の可能性を network で示す', () => {
   const text = describeConnectivity({
     origin: 'https://shimizu.github.io',
-    probe: { kind: 'network', status: null, url: `${EE_API_ORIGIN}/v1/x`, error: 'Failed to fetch' },
+    probes: [
+      {
+        origin: EE_API_ORIGIN,
+        allowed: null,
+        probe: { kind: 'network', status: null, url: `${EE_API_ORIGIN}/v1/x`, error: 'Failed to fetch' },
+      },
+    ],
     cspConnectSrc: null,
-    allowed: null,
     violations: [],
   })
   assert.match(text, /拡張機能/)
@@ -102,6 +137,18 @@ test('probeEeEndpoint は HTTP 応答と失敗を分類する', async () => {
 
   const unsupported = await probeEeEndpoint({ project: 'p', fetchImpl: null })
   assert.equal(unsupported.kind, 'unsupported')
+})
+
+test('probeEeEndpoint は origin を差し替えられる（content- ホストの確認用）', async () => {
+  const r = await probeEeEndpoint({
+    project: 'p',
+    origin: EE_CONTENT_ORIGIN,
+    fetchImpl: async (url) => {
+      assert.ok(url.startsWith(`${EE_CONTENT_ORIGIN}/v1/projects/p/algorithms`))
+      return { ok: true, status: 200 }
+    },
+  })
+  assert.equal(r.kind, 'ok')
 })
 
 test('probeEeEndpoint は認証ヘッダーがあれば付ける', async () => {
