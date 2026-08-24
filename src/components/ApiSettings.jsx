@@ -4,7 +4,7 @@
 //       利用者が入力する方針（共有端末では削除を促す）。
 // 関係: 値と保存処理は useSettings が管理。ヘッダー右側に差し込む。
 // 流用元: reference/web-gis-ai-agent/src/components/ApiSettings.jsx
-import { VOICE_OPTIONS } from '../voice/gemini-live-client.js'
+import { VOICE_OPTIONS } from '../voice/voice-options.js'
 function TestResult({ result }) {
   if (!result || result.status === 'idle') return null
   return (

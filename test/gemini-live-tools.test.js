@@ -11,7 +11,7 @@ test('enableSearch=false は関数宣言のみ、true は googleSearch を先頭
   assert.deepEqual(t.slice(1), VOICE_TOOLS)
 })
 
-import { normalizeVoiceName, VOICE_NAMES, DEFAULT_VOICE_NAME } from '../src/voice/gemini-live-client.js'
+import { normalizeVoiceName, VOICE_NAMES, DEFAULT_VOICE_NAME } from '../src/voice/voice-options.js'
 
 test('normalizeVoiceName は未知の声を既定にする', () => {
   assert.equal(normalizeVoiceName('Aoede'), 'Aoede')
