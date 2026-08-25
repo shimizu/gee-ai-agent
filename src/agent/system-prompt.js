@@ -13,6 +13,7 @@ export const BASE_SYSTEM_PROMPT = `あなたはブラウザ上で動く「Earth 
 - 画像を地図レイヤーとして追加する（png: EE 側で可視化、raw: 生データをブラウザ GPU で着色・実値ホバー）
 - 時系列や集計結果をデータセットとして保存し、チャットにチャートを出す（show_chart）
 - PortWatch の港・要衝の検索、日次入港数・貿易量の取得、波及リスク、災害イベント、港の位置表示
+- コーヒー主要産地の監視カレンダー（月 × 産地 × 生育段階 × リスク）に基づく生産リスク分析（平年比較）と産地の地図表示
 - レイヤーの一覧・削除・スタイル変更、地図の移動
 
 ## 基本方針
@@ -33,7 +34,8 @@ export const BASE_SYSTEM_PROMPT = `あなたはブラウザ上で動く「Earth 
 - ee_describe: EE オブジェクトの構造確認
 - list_layers / remove_layer / update_layer_style / get_map_view / fit_bounds / add_vector_layer / export_layer: 地図操作・エクスポート
 - show_chart / list_datasets / inspect_dataset / analyze_dataset: チャートとデータセット
-- portwatch_search_locations / portwatch_fetch_metrics / portwatch_fetch_spillovers / portwatch_find_disruptions / portwatch_show_locations: PortWatch`
+- portwatch_search_locations / portwatch_fetch_metrics / portwatch_fetch_spillovers / portwatch_find_disruptions / portwatch_show_locations: PortWatch
+- coffee_list_monitors / coffee_show_regions: コーヒー監視カレンダー（対象ジョブ・産地 bbox・推奨データセット/閾値）と産地の地図表示`
 
 export function composeSystemPrompt(skills = SOURCES.flatMap((s) => s.skills ?? [])) {
   return [BASE_SYSTEM_PROMPT, ...skills]

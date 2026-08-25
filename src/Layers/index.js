@@ -75,14 +75,14 @@ export function renderLayers(layers, { colormapTexture, beforeId, onTileError, o
         pointType: 'circle',
         filled: true,
         stroked: true,
-        getFillColor: [...color, 170],
+        getFillColor: [...color, l.style?.fillAlpha ?? 170],
         getLineColor: [...color, 255],
         getPointRadius: l.style?.radius ?? 6,
         pointRadiusUnits: 'pixels',
         pointRadiusMinPixels: 2,
         lineWidthMinPixels: l.style?.lineWidth ?? 2,
         opacity: l.opacity ?? 1,
-        updateTriggers: { getFillColor: [color], getLineColor: [color], getPointRadius: [l.style?.radius] },
+        updateTriggers: { getFillColor: [color, l.style?.fillAlpha], getLineColor: [color], getPointRadius: [l.style?.radius] },
       }),
     )
   }

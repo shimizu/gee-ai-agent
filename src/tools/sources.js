@@ -8,5 +8,6 @@ import { geeSource } from './gee/index.js'
 import { mapSource } from './map/index.js'
 import { chartSource } from './chart/index.js'
 import { portwatchSource } from './portwatch/index.js'
+import { coffeeSource } from './coffee/index.js'
 
-export const SOURCES = [geeSource, mapSource, chartSource, portwatchSource]
+export const SOURCES = [geeSource, mapSource, chartSource, portwatchSource, coffeeSource]

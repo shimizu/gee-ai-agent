@@ -27,6 +27,8 @@ test('全ソースのツール名が一意で、スキーマ形式が揃って�
   assert.ok(names.includes('ee_add_layer'))
   assert.ok(names.includes('show_chart'))
   assert.ok(names.includes('portwatch_fetch_metrics'))
+  assert.ok(names.includes('coffee_list_monitors'))
+  assert.ok(names.includes('coffee_show_regions'))
   assert.ok(registry instanceof ToolRegistry)
 })
 
@@ -41,6 +43,12 @@ test('スキルは非空で BASE の後ろに連結される', () => {
   assert.match(prompt, /NASA\/GPM_L3\/IMERG_V07/)
   assert.match(prompt, /Tiba/)
   assert.match(prompt, /2–98 パーセンタイル/)
+  // coffee スキル: 見出し・例外データセット・データから生成された表・対象外の明記
+  assert.match(prompt, /スキル: コーヒー生産リスク監視/)
+  assert.match(prompt, /UCSB-CHG\/CHIRPS\/DAILY/)
+  assert.match(prompt, /BR_ARABICA_FLOWERING/)
+  assert.match(prompt, /Sul de Minas/)
+  assert.match(prompt, /単発分析/)
 })
 
 import { buildSystemBlocks, formatNow } from '../src/agent/system-context.js'

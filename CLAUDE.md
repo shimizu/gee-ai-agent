@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 主な機能: EE 画像の地図表示（png = EE 側可視化 / raw = float 生データを GPU で着色・ホバーで実値・
 カラーマップ即時変更）、EE の値計算・時系列集約、チャート出力、IMF PortWatch（港の検索・日次入港数・
-波及リスク・災害イベント・港の位置表示）、港 × 衛星の複合分析。
+波及リスク・災害イベント・港の位置表示）、港 × 衛星の複合分析、コーヒー生産リスク監視（監視カレンダー × 産地 bbox × 平年比較レシピ、産地の地図表示）。
 
 ## コマンド
 
@@ -26,7 +26,8 @@ npm test           # node --test（ブラウザ非依存の純ロジックのみ
 
 テストは Node 標準の `node --test`。ブラウザ依存（EE ライブラリ / WebGL / DOM）に触れない純ロジックだけを
 対象にする（chart-spec / tms / pixel-pick / raster-texture / ee-errors / code-runner / region /
-portwatch-client / metrics / dataset-store / layer-store / system-prompt / runtime / tool-registry / ee-diagnostics）。
+portwatch-client / metrics / dataset-store / layer-store / system-prompt / runtime / tool-registry / ee-diagnostics /
+coffee-calendar / coffee-tools）。
 描画・認証は `npm run dev` での手動確認で担保する。
 
 ## GEE の前提（利用者側の設定）
@@ -111,6 +112,9 @@ Claude とは別系統の第 2 の LLM 経路。ユーザーと音声で会話�
 - `chart/`: `show_chart` / `list_datasets` / `inspect_dataset` / `analyze_dataset`
 - `portwatch/`: `portwatch_search_locations` / `portwatch_fetch_metrics` / `portwatch_fetch_spillovers` /
   `portwatch_find_disruptions` / `portwatch_show_locations`（+ `portwatch-client.js` / `anomaly.js` / `metrics.js`）
+- `coffee/`: `coffee_list_monitors` / `coffee_show_regions`（+ `calendar.js`〔監視カレンダー 22 行・`activeMonitors`〕/ `regions.js`〔産地 9 件の
+  概略 bbox・GeoJSON 変換〕/ `risk-profiles.js`〔リスク種別ごとのデータセット・指標・閾値〕）。3 モジュールが単一情報源で、スキルの表も
+  ここから生成する。EE は呼ばない（未ログインでも動く）。異常度の計算は `ee_run` に任せ、スキルに「平年比較の型」として書いてある。
 - `shared/`: `summarize.js`（LLM へ返す要約・GeoJSON 変換）、`region.js`（領域指定の正規化 → ee.Geometry）
 deps の形は `src/tools/register-tools.js` 先頭のコメント参照。**ツールは要約だけを LLM に返す**（行データは DatasetStore、
 地物は LayerStore）。
@@ -119,7 +123,10 @@ deps の形は `src/tools/register-tools.js` 先頭のコメント参照。**ツ
 `runtime.js`（tool use ループ、`is_error` で自己修正、`TOOL_RESULT_CHAR_CAP`）、`claude-client.js`（直叩き・リトライ・
 プロンプトキャッシュ）、`tool-registry.js`、`compaction.js`、`conversation-store.js`、`system-prompt.js` + `skills/`
 （`gee-core` / `gee-datasets`〔用途別データセット。降水は NASA/GPM_L3/IMERG_V07、気温・風など気象は NOAA/CFSR_HARMONIZED が第一候補〕/ `gee-viz` / `chart` /
-`portwatch` / `portwatch-x-gee`。1 ドメイン 1 ファイルの Markdown 文字列）。
+`portwatch` / `portwatch-x-gee` / `coffee`〔コーヒー監視。gee-datasets の第一候補（IMERG / CFSR）に対する例外として、平年比較には
+20 年以上の履歴を持つ CHIRPS / ERA5-Land を使う〕。1 ドメイン 1 ファイルの Markdown 文字列。**スキル文字列は決定的にする**（現在月などの
+揮発情報を入れない。`cache_control` 付き安定プレフィックスに載るため。現在日時は `system-context.js` の揮発ブロックで渡す）。
+ドメイン知識を足すときは「純データ（JS モジュール）→ スキルの表を生成 + 小ツール」の形（`tools/coffee/` が雛形）。
 
 ### データ層（`src/data/`）
 `layer-store.js`（spec のみ永続化。runtime はリロード後に再作成）、`dataset-store.js`（要約 localStorage + 行 IndexedDB）、
@@ -132,7 +139,7 @@ deps の形は `src/tools/register-tools.js` 先頭のコメント参照。**ツ
 
 ### 描画（`src/Layers/index.js`）
 deck.gl レイヤー配列を組む唯一の場所。png = `TileLayer`+`BitmapLayer`、raw = `RasterTileLayer`（`updateTriggers.renderTile`
-に colormap/rescale 等を入れて再フェッチ無しで再描画）、vector = `GeoJsonLayer`。MapLibre の interleaved モードで
+に colormap/rescale 等を入れて再フェッチ無しで再描画）、vector = `GeoJsonLayer`（`style.color` / `radius` / `lineWidth` / `fillAlpha`〔ポリゴンの塗り α、既定 170〕）。MapLibre の interleaved モードで
 `beforeId`（最初の symbol レイヤー）の下に敷く。
 
 ## 守るべき前提
@@ -156,7 +163,8 @@ deck.gl レイヤー配列を組む唯一の場所。png = `TileLayer`+`BitmapLa
 
 ## 参考資料
 `reference/`（lint/test 対象外・import 禁止）: `web-gis-ai-agent`（agent コアと UI の流用元）、`portwatch-dashboard`
-（PortWatch クライアントと docs/portwatch-api.md）、`deck.gl-raster`（ライブラリのソースと examples）。
+（PortWatch クライアントと docs/portwatch-api.md）、`deck.gl-raster`（ライブラリのソースと examples）、`coffee.md`（コーヒー生産リスク監視
+手順書の原典。`tools/coffee/` と `skills/coffee.js` に蒸留済み。Risk Score の日次蓄積・バックテスト・外部 API 連携は未取り込み）。
 
 ## コミット規約
 プレフィックスを付ける: `feat:` / `fix:` / `docs:` / `refactor:` / `perf:` / `test:` / `chore:` / `style:`。
