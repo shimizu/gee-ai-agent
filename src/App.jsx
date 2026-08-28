@@ -14,6 +14,7 @@ import { useChartActions } from './hooks/useChartActions'
 import { useAgentSession } from './hooks/useAgentSession'
 import { useMapHover } from './hooks/useMapHover'
 import { useVoiceSession } from './hooks/useVoiceSession'
+import { useVisualViewport } from './hooks/useVisualViewport'
 
 import { RawTileCache } from './gee/tile-cache.js'
 import { getColormapTexture } from './gee/colormap-registry.js'
@@ -66,6 +67,9 @@ function App() {
 
   // --- 設定 ---
   const { settings, setField, save, deleteKeys, settingsOpen, setSettingsOpen, tests, testClaude, testGemini, runGeeTest } = useSettings()
+  // スマホで実際に見えている高さに .app-shell を合わせる（100vh/100dvh の揺れ対策）。
+  const viewportBox = useVisualViewport()
+  const shellStyle = viewportBox ? { height: `${viewportBox.height}px`, top: `${viewportBox.top}px` } : undefined
 
   // --- GEE 認証 ---
   const { geeClient, geeState, login: geeLogin, logout: geeLogout, testConnection: geeTest } = useGeeClient({
@@ -423,7 +427,7 @@ function App() {
   )
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={shellStyle}>
       <Header
         rightOpen={rightOpen}
         onToggleRight={() => setRightOpen((v) => !v)}

@@ -85,10 +85,16 @@ textarea {
 .app-shell {
   display: flex;
   flex-direction: column;
-  /* スマホの 100vh は URL バーが隠れた状態の高さで、バー表示中は下端（送信ボタン）が画面外に出る。
-     dvh（動的ビューポート）で実際の可視高に合わせる。未対応ブラウザは 100vh にフォールバック。 */
+  /* スマホでは 100vh / 100dvh の解釈がブラウザや表示モードで揺れ、下端（送信ボタン）が画面外に出る。
+     position: fixed で可視領域に貼り付け、実高は App が visualViewport から測ってインライン style で上書きする
+     （useVisualViewport）。API が無い環境は 100dvh → 100vh の順にフォールバック。 */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   height: 100vh;
   height: 100dvh;
+  overflow: hidden;
 }
 .app-header {
   height: var(--header-height);
@@ -1138,8 +1144,6 @@ code {
   }
   .sidebar-right {
     border-top: 1px solid var(--color-border);
-    /* viewport-fit=cover のため、iPhone のホームインジケータ分だけ下に余白を取る */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .resize-handle {
     display: none;

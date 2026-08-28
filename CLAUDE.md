@@ -55,6 +55,8 @@ coffee-calendar / coffee-tools）。
   system は「安定プレフィックス（BASE+スキル, cache_control）」+「揮発ブロック（GEE 状態・レイヤー・データセット・表示範囲）」。
   ツールからの `postChatMessage({kind:'chart'})` もここで受ける。
 - `useMapHover` — raw レイヤーのホバーでタイルキャッシュから実値を拾う。
+- `useVisualViewport` — `visualViewport` の高さ/上端を追跡し、App が `.app-shell`（`position: fixed`）のインライン高さに適用する。
+  スマホの 100vh/100dvh の揺れ（URL バー・キーボード・ホーム画面追加）で下端が隠れるのを防ぐ。API が無い環境は CSS の dvh に委ねる。
 - `useVoiceSession` — Gemini Live（音声相談）。マイク → Gemini → 再生の往復と、Gemini からの UI 操作
   （`run_prompt` = 入力欄に書いて**送信まで行う** / `capture_map` = 地図スクショ）を結線。Claude 実行中の `run_prompt` は
   busy で拒否。`notifyAgentFinished` で Claude 完了の要約をテキスト送信して読み上げさせる（useAgentSession の `onFinished`
