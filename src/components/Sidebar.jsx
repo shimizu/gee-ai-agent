@@ -98,7 +98,10 @@ function Sidebar({
       role="separator"
       aria-orientation="horizontal"
       title="ドラッグで高さを変更"
-    />
+    >
+      {/* 狭幅ではつまみ（横バー）を見せ、指で掴める高さを確保する（app.css） */}
+      <span className="resize-grip" aria-hidden="true" />
+    </div>
   )
 
   // --panel-h は高さがドラッグ指定されたときだけ付与し、未指定時は CSS 既定（%）に委ねる。
