@@ -85,7 +85,10 @@ textarea {
 .app-shell {
   display: flex;
   flex-direction: column;
+  /* スマホの 100vh は URL バーが隠れた状態の高さで、バー表示中は下端（送信ボタン）が画面外に出る。
+     dvh（動的ビューポート）で実際の可視高に合わせる。未対応ブラウザは 100vh にフォールバック。 */
   height: 100vh;
+  height: 100dvh;
 }
 .app-header {
   height: var(--header-height);
@@ -507,6 +510,7 @@ code {
   max-width: 480px;
   width: calc(100% - 32px);
   max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   overflow: auto;
 }
 .modal-wide {
@@ -901,6 +905,7 @@ code {
   padding: 0;
   width: min(960px, calc(100vw - 48px));
   max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 .chart-dialog::backdrop {
@@ -952,6 +957,7 @@ code {
   flex-direction: column;
   gap: var(--space-1);
   max-height: calc(100vh - 80px);
+  max-height: calc(100dvh - 80px);
   overflow: auto;
 }
 .settings-popover label {
@@ -1132,6 +1138,8 @@ code {
   }
   .sidebar-right {
     border-top: 1px solid var(--color-border);
+    /* viewport-fit=cover のため、iPhone のホームインジケータ分だけ下に余白を取る */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   .resize-handle {
     display: none;
