@@ -16,9 +16,9 @@ export const SETTINGS_KEYS = {
   introSeen: 'gee-agent.introSeen',
 }
 
-export const DEFAULT_MODEL = 'claude-opus-4-8'
+export const DEFAULT_MODEL = 'claude-opus-5-5'
 export const DEFAULT_MAX_TOKENS = 16000
-export const DEFAULT_VOICE_MODEL = 'gemini-3.1-flash-live-preview'
+export const DEFAULT_VOICE_MODEL = 'gemini-3.8-live'
 export const DEFAULT_VOICE_NAME = 'Kore'
 
 export function loadSetting(key, fallback = '') {

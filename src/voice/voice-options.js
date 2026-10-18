@@ -4,7 +4,7 @@
 // 関係: gemini-live-client.js（接続時の既定値）と components/ApiSettings.jsx（設定 UI の選択肢）が使う。
 //       UI から gemini-live-client.js を直接読むと、useVoiceSession の動的 import が効かず
 //       @google/genai が初期チャンクに入ってしまうため、定数はここに分離する。
-export const DEFAULT_VOICE_MODEL = 'gemini-3.1-flash-live-preview'
+export const DEFAULT_VOICE_MODEL = 'gemini-3.8-live'
 // 音声の声色（既定）。native audio モデルは言語を自動判別するので言語指定はしない（system instruction で指示）。
 export const DEFAULT_VOICE_NAME = 'Kore'
 // 選べる声（Gemini の prebuilt voice。名前と雰囲気）。
