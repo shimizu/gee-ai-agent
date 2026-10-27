@@ -59,7 +59,7 @@ coffee-calendar / coffee-tools）。
   スマホの 100vh/100dvh の揺れ（URL バー・キーボード・ホーム画面追加）で下端が隠れるのを防ぐ。API が無い環境は CSS の dvh に委ねる。
 - `useVoiceSession` — Gemini Live（音声相談）。マイク → Gemini → 再生の往復と、Gemini からの UI 操作
   （`run_prompt` = 入力欄に書いて**送信まで行う** / `capture_map` = 地図スクショ）を結線。Claude 実行中の `run_prompt` は
-  busy で拒否。`notifyAgentFinished` で Claude 完了の要約をテキスト送信して読み上げさせる（useAgentSession の `onFinished`
+  busy で拒否。`toggleMute` はセッションを切らずにマイク送信だけ止める（`track.enabled=false` + チャンク破棄、ミュート時に `audioStreamEnd`）。`notifyAgentFinished` で Claude 完了の要約をテキスト送信して読み上げさせる（useAgentSession の `onFinished`
   から App の ref 経由で転送）。
 
 ### 音声層（`src/voice/`）— Gemini Live API

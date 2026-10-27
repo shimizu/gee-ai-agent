@@ -15,6 +15,7 @@ const WORKLET_URL = new URL('./pcm-worklet.js', import.meta.url)
 const TARGET_SAMPLE_RATE = 16000
 
 // マイクを開いて音声チャンクの送出を始める。戻り値の stop() で完全に解放する。
+// setMuted(true) でマイクトラックを無効化し、チャンクの送出も止める（マイクは掴んだまま）。
 export async function startAudioCapture({ onChunk, sampleRate = TARGET_SAMPLE_RATE } = {}) {
   const nav = globalThis.navigator
   if (!nav?.mediaDevices?.getUserMedia) {
@@ -40,7 +41,9 @@ export async function startAudioCapture({ onChunk, sampleRate = TARGET_SAMPLE_RA
     await context.audioWorklet.addModule(WORKLET_URL)
     const source = context.createMediaStreamSource(stream)
     const worklet = new AudioNode(context, 'pcm-capture')
+    let muted = false
     worklet.port.onmessage = (event) => {
+      if (muted) return
       onChunk?.(float32ToBase64Pcm16(event.data))
     }
     source.connect(worklet)
@@ -53,6 +56,12 @@ export async function startAudioCapture({ onChunk, sampleRate = TARGET_SAMPLE_RA
 
     return {
       sampleRate: context.sampleRate,
+      setMuted(value) {
+        muted = Boolean(value)
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = !muted
+        })
+      },
       async stop() {
         worklet.port.onmessage = null
         try {

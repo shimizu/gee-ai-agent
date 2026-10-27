@@ -279,8 +279,10 @@ function App() {
     transcript: voiceTranscript,
     error: voiceError,
     elapsed: voiceElapsed,
+    muted: voiceMuted,
     start: startVoice,
     stop: stopVoice,
+    toggleMute: toggleVoiceMute,
     notifyAgentFinished,
   } = useVoiceSession({
     apiKey: settings.geminiApiKey,
@@ -356,10 +358,12 @@ function App() {
                 transcript={voiceTranscript}
                 error={voiceError}
                 elapsed={voiceElapsed}
+                muted={voiceMuted}
                 disabled={!settings.geminiApiKey}
                 disabledReason="⚙ 設定 から Gemini API キーを設定すると音声で相談できます。"
                 onStart={startVoice}
                 onStop={stopVoice}
+                onToggleMute={toggleVoiceMute}
               />
             }
           />
@@ -405,9 +409,11 @@ function App() {
       voiceTranscript,
       voiceError,
       voiceElapsed,
+      voiceMuted,
       settings.geminiApiKey,
       startVoice,
       stopVoice,
+      toggleVoiceMute,
       layers,
       toggleLayer,
       zoomToLayer,

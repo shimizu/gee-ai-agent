@@ -5,6 +5,7 @@
 //       GEE / PortWatch のツールは渡さない（分析は Claude エージェントの担当）。
 //       run_prompt は入力欄に書き込み、そのまま送信して Claude を実行する（実行中は busy で拒否）。
 //       Claude の完了は notifyAgentFinished() で受け、要約テキストを送って読み上げさせる。
+//       toggleMute() はセッションを保ったままマイク入力の送信だけを止める（周囲の会話を拾わないため）。
 // 注入: { apiKey, model, layers, datasets, geeState, isAgentRunning, runPrompt(text), setChatInput, enableSearch, voiceName, log }
 //       enableSearch=true で Google 検索グラウンディングを有効化（groundingMetadata はログに残す）。
 // 流用元: reference/web-gis-ai-agent/src/hooks/useVoiceSession.js
@@ -34,6 +35,7 @@ export function useVoiceSession({
   const [transcript, setTranscript] = useState('')
   const [error, setError] = useState('')
   const [elapsed, setElapsed] = useState(0)
+  const [muted, setMuted] = useState(false)
 
   const sessionRef = useRef(null)
   const captureRef = useRef(null)
@@ -68,6 +70,7 @@ export function useVoiceSession({
         playerRef.current = null
       } finally {
         stoppingRef.current = false
+        setMuted(false)
         setVoiceState((s) => (s === 'error' ? s : 'idle'))
         if (reason) log?.(`🎙 音声セッション終了: ${reason}`)
       }
@@ -138,6 +141,7 @@ export function useVoiceSession({
     setError('')
     setTranscript('')
     setElapsed(0)
+    setMuted(false)
     setVoiceState('connecting')
     try {
       const player = createAudioPlayer({
@@ -193,6 +197,18 @@ export function useVoiceSession({
     teardown('ユーザー操作で停止')
   }, [teardown])
 
+  // マイクのミュート切替。セッションは切らず、Gemini の発話・ツール呼び出し・完了通知は続く。
+  // ミュート時は audioStreamEnd を送り、言いかけの音声でサーバーの発話区切り待ちが残らないようにする。
+  const toggleMute = useCallback(() => {
+    const capture = captureRef.current
+    if (!capture) return
+    const next = !muted
+    capture.setMuted(next)
+    if (next) sessionRef.current?.sendAudioStreamEnd?.()
+    setMuted(next)
+    log?.(next ? '🔇 音声: マイクをミュート' : '🎙 音声: ミュート解除')
+  }, [log, muted])
+
   // Claude 完了通知 → Gemini にテキストで送って読み上げさせる（セッション中のみ）。
   const notifyAgentFinished = useCallback(
     (result) => {
@@ -210,5 +226,5 @@ export function useVoiceSession({
 
   useEffect(() => () => void teardown(), [teardown])
 
-  return { voiceState, transcript, error, elapsed, start, stop, notifyAgentFinished, isLive: voiceState === 'listening' || voiceState === 'speaking' }
+  return { voiceState, transcript, error, elapsed, muted, start, stop, toggleMute, notifyAgentFinished, isLive: voiceState === 'listening' || voiceState === 'speaking' }
 }
