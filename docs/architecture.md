@@ -6,9 +6,13 @@ IMF PortWatch（ArcGIS）・Gemini Live API をすべてブラウザから直接
 
 この文書は全体像と主要な処理の流れを説明します。ファイル単位の要点と「守るべき前提」は `CLAUDE.md` を参照してください。
 
+![話しかけるだけで、衛星データを調べられる（Gemini Live → Claude → Google Earth Engine の連携イメージ）](architecture-simple.jpg)
+
 ---
 
 ## 1. 全体構成
+
+![gee-ai-agent のアーキテクチャ（ブラウザ内の各層と外部サービス）](architecture.jpg)
 
 ```mermaid
 flowchart LR
@@ -256,6 +260,10 @@ flowchart LR
 
 Claude とは別系統の第 2 の LLM 経路です。Gemini はユーザーと音声で会話して **Claude への指示文を作るだけ**で、
 アプリのツール（GEE / PortWatch / 地図）は渡しません。渡す関数は `run_prompt` と `capture_map` の 2 つだけです。
+
+![音声から地理空間分析へ（Gemini Live × Claude エージェント × Google Earth Engine の主要経路）](architecture-api-flow.jpg)
+
+英語版: [architecture-api-flow-en.jpg](architecture-api-flow-en.jpg)
 
 ```mermaid
 sequenceDiagram
