@@ -1,0 +1,2 @@
+import{t as inflate_1}from"./pako.esm-Cx4XmjVF.js";import{BaseDecoder}from"./geotiff-DLIQCD_s.js";var DeflateDecoder=class extends BaseDecoder{decodeBlock(buffer){return inflate_1(new Uint8Array(buffer)).buffer}};export{DeflateDecoder as default};
+//# sourceMappingURL=deflate-DdfQK8TT.js.map
