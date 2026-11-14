@@ -8,8 +8,8 @@ import { defineConfig } from 'eslint/config'
 
 export default defineConfig([
   {
-    // dist（ビルド成果物）と reference（別プロジェクトの参照実装）は lint 対象外。
-    ignores: ['dist', 'reference'],
+    // dist（ビルド成果物）・reference（別プロジェクトの参照実装）・slide（LT 資料。reveal.js 同梱）は lint 対象外。
+    ignores: ['dist', 'reference', 'slide'],
   },
   {
     // AudioWorklet は window の無い専用スコープで動くため、グローバルを個別に宣言する。
